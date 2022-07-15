@@ -1,7 +1,0 @@
-{
-  "ApiGatewayRestApiId": "s60lzfkqyh",
-  "Region": "us-east-2",
-  "ServiceEndpoint": "https://s60lzfkqyh.execute-api.us-east-2.amazonaws.com/prod",
-  "ApiGatewayRestApiRootResourceId": "07ki4pog5k",
-  "ServerlessDeploymentBucketName": "openeditor-prod-deployment-n5v4ltxhx"
-}
