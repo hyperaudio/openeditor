@@ -12,22 +12,14 @@ import stream from 'stream';
 
 AWS.config.update({ region: 'us-east-2' });
 
-const {
-  TableName,
-  MediaConvertAPI,
-  MediaConvertQueue,
-  MediaConvertRole,
-  MediaBucket,
-  TaskSubnet,
-  GIT_COMMIT_SHORT: version,
-} = process.env;
+const { TableName, GIT_COMMIT_SHORT: version } = process.env;
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const transcribeService = new AWS.TranscribeService();
 const s3 = new AWS.S3();
 const ecs = new AWS.ECS();
 
 const mediaConvert = new AWS.MediaConvert({
-  endpoint: MediaConvertAPI,
+  endpoint: 'https://fkuulejsc.mediaconvert.us-east-2.amazonaws.com',
 });
 
 const collisions = {};
@@ -206,43 +198,71 @@ export async function transcribed(event, context) {
               }, [])
               .filter(word => !!word);
 
-            const blocks = segments.map(({ start_time, speaker_label: speaker, end_time }) => {
-              const key = generateID();
-              const start = parseFloat(start_time) * 1e3;
-              const end = parseFloat(end_time) * 1e3;
+            const blocks = segments
+              .map(({ start_time, speaker_label: speaker, end_time }) => {
+                const key = generateID();
+                const start = parseFloat(start_time) * 1e3;
+                const end = parseFloat(end_time) * 1e3;
 
-              const entityData = {};
-              words
-                .filter(({ start: s, end: e }) => start <= s && s < end && start < e && e <= end)
-                .forEach(word =>
-                  Object.keys(word).forEach(key =>
-                    entityData[key] ? entityData[key].push(word[key]) : (entityData[key] = [word[key]])
-                  )
-                );
+                const entityData = {};
+                words
+                  .filter(({ start: s, end: e }) => start <= s && s < end && start < e && e <= end)
+                  .forEach(word =>
+                    Object.keys(word).forEach(key =>
+                      entityData[key] ? entityData[key].push(word[key]) : (entityData[key] = [word[key]])
+                    )
+                  );
 
-              const { start: starts, end: ends, offset: offsets, length: lengths, key: keys, text: texts } = entityData;
-              const offset = offsets[0];
+                const {
+                  start: starts,
+                  end: ends,
+                  offset: offsets,
+                  length: lengths,
+                  key: keys,
+                  text: texts,
+                } = entityData;
+                const offset = offsets[0];
 
-              return {
-                PK,
-                SK: `v0_block:${key}`,
-                RowVersion: 0,
-                RowType: 'block',
-                key,
-                start,
-                end,
-                speaker,
-                text: texts.join(' '),
-                starts,
-                ends,
-                offsets: offsets.map(o => o - offset),
-                lengths,
-                keys,
-                status: 'transcribed',
-                createdAt: now,
-                updatedAt: now,
-              };
-            });
+                return {
+                  PK,
+                  SK: `v0_block:${key}`,
+                  RowVersion: 0,
+                  RowType: 'block',
+                  key,
+                  start,
+                  end,
+                  speaker,
+                  text: texts.join(' '),
+                  starts,
+                  ends,
+                  offsets: offsets.map(o => o - offset),
+                  lengths,
+                  keys,
+                  status: 'transcribed',
+                  createdAt: now,
+                  updatedAt: now,
+                };
+              })
+              .reduce((acc, block) => {
+                if (acc.length === 0) return [block];
+
+                const pBlock = acc.pop();
+
+                if (pBlock.speaker === block.speaker) {
+                  pBlock.end = block.end;
+                  const pOffset = pBlock.text.length;
+                  pBlock.text += ` ${block.text}`;
+                  pBlock.keys = pBlock.keys.concat(block.keys);
+                  pBlock.starts = pBlock.starts.concat(block.starts);
+                  pBlock.ends = pBlock.ends.concat(block.ends);
+                  pBlock.lengths = pBlock.lengths.concat(block.lengths);
+                  pBlock.offsets = pBlock.offsets.concat(block.offsets.map(offset => offset + pOffset + 1));
+
+                  return [...acc, pBlock];
+                }
+
+                return [...acc, pBlock, block];
+              }, []);
 
             await Promise.all(blocks.map(Item => dynamoDb['put']({ TableName, Item }).promise()));
 
@@ -329,7 +349,7 @@ export async function align(event, context) {
 
     await s3
       .putObject({
-        Bucket: MediaBucket,
+        Bucket: `openeditor-prod-storage-n5v4ltxhx`,
         Key: `public/media/${PK}/input/${new Date(now).getTime()}-transcript.txt`,
         ContentType: 'text/plain; charset=utf-8',
         Body: text,
@@ -344,7 +364,7 @@ export async function align(event, context) {
       platformVersion: 'LATEST',
       networkConfiguration: {
         awsvpcConfiguration: {
-          subnets: [TaskSubnet],
+          subnets: ['subnet-d90c11b1'],
           assignPublicIp: 'ENABLED',
         },
       },
@@ -355,7 +375,7 @@ export async function align(event, context) {
             environment: [
               {
                 name: 'INPUT_MEDIA_S3_BUCKET',
-                value: namespace === 'm-nc9x4fbvxfm4jhb9' ? 'm-nc9x4fbvxfm4jhb9' : MediaBucket,
+                value: namespace === 'm-nc9x4fbvxfm4jhb9' ? 'm-nc9x4fbvxfm4jhb9' : `openeditor-prod-storage-n5v4ltxhx`,
               },
               {
                 name: 'INPUT_MEDIA_S3_KEY',
@@ -363,7 +383,7 @@ export async function align(event, context) {
               },
               {
                 name: 'INPUT_TRANSCRIPT_S3_BUCKET',
-                value: MediaBucket,
+                value: `openeditor-prod-storage-n5v4ltxhx`,
               },
               {
                 name: 'INPUT_TRANSCRIPT_S3_KEY',
@@ -371,7 +391,7 @@ export async function align(event, context) {
               },
               {
                 name: 'OUTPUT_S3_BUCKET',
-                value: MediaBucket,
+                value: `openeditor-prod-storage-n5v4ltxhx`,
               },
               {
                 name: 'OUTPUT_S3_KEY',
@@ -593,7 +613,7 @@ export async function aligned(event, context) {
 
             await s3
               .putObject({
-                Bucket: MediaBucket,
+                Bucket: `openeditor-prod-storage-n5v4ltxhx`,
                 Key: `${key}-test.json`,
                 ContentType: 'text/plain; charset=utf-8',
                 Body: JSON.stringify(updates, null, 2),
@@ -650,9 +670,9 @@ export async function transcode(event, context) {
   const jobName = `${PK}-transcription`;
 
   const params = {
-    Queue: MediaConvertQueue,
+    Queue: 'arn:aws:mediaconvert:us-east-2:719544875353:queues/Default',
     UserMetadata: {},
-    Role: MediaConvertRole,
+    Role: 'arn:aws:iam::719544875353:role/mediaConvertRole',
     Settings: {
       OutputGroups: [
         {
@@ -694,7 +714,7 @@ export async function transcode(event, context) {
           OutputGroupSettings: {
             Type: 'FILE_GROUP_SETTINGS',
             FileGroupSettings: {
-              Destination: `s3://${MediaBucket}/public/media/${PK}/input/`,
+              Destination: `s3://openeditor-prod-storage-n5v4ltxhx/public/media/${PK}/input/`,
             },
           },
         },

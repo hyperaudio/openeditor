@@ -22,7 +22,7 @@ import {
   Typography,
 } from 'antd';
 
-import { getProjects, getItems, getItem, clearCache, newProject, add2Project, getUsers } from './api';
+import { getProjects, getItems, getPath, getItem, clearCache, newProject, add2Project, getUsers } from './api';
 import Title from './components/Title';
 import InfoDrawer from './components/InfoDrawer';
 
@@ -53,7 +53,9 @@ class App extends React.Component {
     canplay: false,
     playing: false,
     src: null,
+    speed: 1,
     users: [{ sub: 1111, name: 'LG', email: 'a@a.com' }],
+    path: [],
   };
 
   player = React.createRef();
@@ -85,15 +87,9 @@ class App extends React.Component {
     const currentProject = project ? projects.find(({ id }) => id === project) : projects[0];
     this.setState({ currentProject });
 
-    if (!project && currentProject) {
-      history.push(`/${currentProject.id}`);
-    } else if (!project) {
-      // first time user, create default project
-      const project = await newProject(`Default Project ${new Date().toISOString()}`, this.state.user);
-      this.props.history.push(`/${project}`);
-    }
+    if (!project) history.push(`/${currentProject.id}`);
 
-    if (currentProject) this.retrieveItems(currentProject.id, parent ? parent : currentProject.id);
+    this.retrieveItems(currentProject.id, parent ? parent : currentProject.id);
     transcript && this.retrieveTranscript(project, parent, transcript);
   }
 
@@ -134,11 +130,13 @@ class App extends React.Component {
 
   retrieveItems = async (project, parent, silent = false) => {
     this.setState({ loading: !silent });
+    const path = await getPath(project, parent);
     const data = await getItems(project, parent);
     // const folders = silent
     //   ? this.state.folders
     //   : (project === parent ? data : await getItems(project, project)).filter(({ type }) => type === 'folder');
-    this.setState({ loading: false, data /*, folders */ });
+    this.setState({ loading: false, data /*, folders */, path });
+    // console.log({ path });
   };
 
   retrieveTranscript = async (project, parent = project, transcript) => {
@@ -197,6 +195,19 @@ class App extends React.Component {
     this.setState({ addUserLoading: false, users: null, addUser: null, addUserModalVisible: false });
   };
 
+  cycleSpeed = () => {
+    const speeds = [0.25, 0.5, 1, 1.25, 1.5, 2];
+    const index = speeds.findIndex(i => i === this.state.speed);
+
+    if (index < speeds.length - 1) {
+      this.player.current.playbackRate = speeds[index + 1];
+      this.setState({ speed: speeds[index + 1] });
+    } else {
+      this.player.current.playbackRate = speeds[0];
+      this.setState({ speed: speeds[0] });
+    }
+  };
+
   render() {
     // cacheStats();
     const {
@@ -217,6 +228,8 @@ class App extends React.Component {
       disjoint,
       user,
       users,
+      speed,
+      path,
     } = this.state;
     const {
       storageBucket,
@@ -228,13 +241,23 @@ class App extends React.Component {
     } = this.props;
 
     let title = <Spin indicator={<Icon type="loading" spin size="big" />} />;
-    const routes = [];
+    // const routes = [];
+    const routes = [
+      {
+        path: `/${project}`,
+        breadcrumbName: currentProject ? currentProject.title : null,
+      },
+      ...path.map(({ PK, title }, i, arr) => ({
+        path: `/${project}/${PK}`,
+        breadcrumbName: <Title id={PK} />,
+      })),
+    ];
 
     if (transcript) {
-      routes.push({
-        path: `/${project}/${parent}`,
-        breadcrumbName: <Title id={parent} />,
-      });
+      // routes.push({
+      //   path: `/${project}/${parent}`,
+      //   breadcrumbName: <Title id={parent} />,
+      // });
 
       title = <Title key={transcript} id={transcript} editable />;
     } else if (parent) {
@@ -245,12 +268,12 @@ class App extends React.Component {
       title = currentProject.type === 'private' ? currentProject.title : <Title key={project} id={project} editable />;
     }
 
-    routes.push({
-      path: `/${project}`,
-      breadcrumbName: currentProject ? currentProject.title : null,
-    });
+    // routes.push({
+    //   path: `/${project}`,
+    //   breadcrumbName: currentProject ? currentProject.title : null,
+    // });
 
-    routes.reverse();
+    // routes.reverse();
 
     let tags = null;
     if (transcript && status) {
@@ -356,15 +379,21 @@ class App extends React.Component {
               title={
                 <>
                   {transcript && (
-                    <Button
-                      type="primary"
-                      shape="circle"
-                      icon={playing ? 'pause' : 'caret-right'}
-                      size="large"
-                      loading={!canplay}
-                      onClick={() => (playing ? this.player.current.pause() : this.player.current.play())}
-                      style={{ fontSize: 16, marginRight: 10 }}
-                    />
+                    <>
+                      <Button type="link" shape="circle" size="medium" onClick={this.cycleSpeed} disabled={!canplay}>
+                        {`${speed}×`}
+                      </Button>
+
+                      <Button
+                        type="primary"
+                        shape="circle"
+                        icon={playing ? 'pause' : 'caret-right'}
+                        size="large"
+                        loading={!canplay}
+                        onClick={() => (playing ? this.player.current.pause() : this.player.current.play())}
+                        style={{ fontSize: 16, marginRight: 10 }}
+                      />
+                    </>
                   )}
                   {title}
                   {!transcript && (
@@ -511,10 +540,10 @@ class App extends React.Component {
                 GNU AGPL Licensed
               </a>{' '}
               and available on{' '}
-              <a href="https://github.com/wwciweb/openeditor" target="_blank" rel="noopener noreferrer">
-                github.com/wwciweb/openeditor
+              <a href="https://github.com/wfmt" target="_blank" rel="noopener noreferrer">
+                github.com/wfmt
               </a>{' '}
-              ©{new Date().getYear() + 1900}
+              ©2019
             </small>
           </Footer>
           <div className="toolTipContainer"></div>

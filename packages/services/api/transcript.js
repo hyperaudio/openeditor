@@ -190,31 +190,28 @@ export const reparagraph = async (event, context) => {
       ExpressionAttributeValues: { ':PK': PK, ':SK': 'v0_block:' },
     }).promise();
 
-    const blocks = transcriptItem.blocks.map(key => blockItems.find(({ SK }) => SK === `v0_block:${key}`)).reduce((acc, block) => {
-      if (acc.length === 0) return [block];
+    const blocks = transcriptItem.blocks
+      .map(key => blockItems.find(({ SK }) => SK === `v0_block:${key}`))
+      .reduce((acc, block) => {
+        if (acc.length === 0) return [block];
 
-      const pBlock = acc.pop();
+        const pBlock = acc.pop();
 
-      if (pBlock.speaker === block.speaker) {
-        pBlock.end = block.end;
-        const pOffset = pBlock.text.length;
-        pBlock.text += ` ${block.text}`;
-        pBlock.keys = pBlock.keys.concat(block.keys);
-        // pBlock.starts.splice(pBlock.starts.length, 0, ...block.starts);
-        pBlock.starts = pBlock.starts.concat(block.starts);
-        // pBlock.ends.splice(pBlock.ends.length, 0, ...block.ends);
-        pBlock.ends = pBlock.ends.concat(block.ends);
-        // pBlock.lengths.splice(pBlock.lengths.length, 0, ...block.lengths);
-        pBlock.lengths = pBlock.lengths.concat(block.lengths);
-        // pBlock.offsets.splice(pBlock.offsets.length, 0, ...block.offsets.map(offset => offset + pBlock.text.length + 1));
-        pBlock.offsets = pBlock.offsets.concat(block.offsets.map(offset => offset + pOffset + 1));
+        if (pBlock.speaker === block.speaker) {
+          pBlock.end = block.end;
+          const pOffset = pBlock.text.length;
+          pBlock.text += ` ${block.text}`;
+          pBlock.keys = pBlock.keys.concat(block.keys);
+          pBlock.starts = pBlock.starts.concat(block.starts);
+          pBlock.ends = pBlock.ends.concat(block.ends);
+          pBlock.lengths = pBlock.lengths.concat(block.lengths);
+          pBlock.offsets = pBlock.offsets.concat(block.offsets.map(offset => offset + pOffset + 1));
 
-        return [...acc, pBlock];
-      }
+          return [...acc, pBlock];
+        }
 
-      return [...acc, pBlock, block];
-
-    }, []);
+        return [...acc, pBlock, block];
+      }, []);
 
     transcriptItem.blocks = blocks.map(({ SK }) => SK.substring(9));
 

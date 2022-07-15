@@ -3,7 +3,7 @@ import { Document, Paragraph, TextRun, Packer } from 'docx';
 import sanitize from 'sanitize-filename';
 import { ContentBlock } from 'draft-js';
 
-const exportTranscript = (id, title, description = '', blocks, format, options = {}) => {
+const exportTranscript = (id, title, description = '', blocks, format) => {
   let data = blocks;
 
   if (blocks[0] instanceof ContentBlock) {
@@ -40,7 +40,7 @@ const exportTranscript = (id, title, description = '', blocks, format, options =
     a.href = window.URL.createObjectURL(blob);
     a.download = filename;
     a.click();
-  } else if (format === 1 || format === 1.5) {
+  } else if (format === 1) {
     const doc = new Document({
       creator: `OpenEditor (%REACT_APP_GIT_SHA%)`,
       description,
@@ -62,7 +62,7 @@ const exportTranscript = (id, title, description = '', blocks, format, options =
 
       const paragraphSpeakerTimecodes = new Paragraph();
       paragraphSpeakerTimecodes.addRun(new TextRun(speaker).bold().tab());
-      if (format !== 1.5) paragraphSpeakerTimecodes.addRun(new TextRun(` [${tc}]`));
+      paragraphSpeakerTimecodes.addRun(new TextRun(` [${tc}]`));
 
       doc.addParagraph(paragraphSpeakerTimecodes);
 

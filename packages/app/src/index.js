@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { BrowserRouter as Router, Route } from 'react-router-dom';
-import { RecoilRoot } from 'recoil';
 import Amplify, { Storage } from 'aws-amplify';
 
 import { withAuthenticator } from 'aws-amplify-react';
@@ -127,7 +126,7 @@ const uriResolver = async (namespace, name) => {
   return new URL(name, `https://${namespace}.s3.amazonaws.com`).href;
 };
 
-ReactDOM.render(<RecoilRoot><Wrapper /></RecoilRoot>, document.getElementById('root'));
+ReactDOM.render(<Wrapper />, document.getElementById('root'));
 // ReactDOM.render(
 //   <React.StrictMode>
 //     <Wrapper />

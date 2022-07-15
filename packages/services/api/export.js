@@ -7,7 +7,7 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 export const transcripts = async (event, context) => {
   const { parent } = event.queryStringParameters;
 
-  const params = {
+  const  params = {
     TableName,
     IndexName: 'parent-index',
     KeyConditionExpression: 'parent = :parent',
@@ -17,20 +17,12 @@ export const transcripts = async (event, context) => {
     FilterExpression: 'attribute_not_exists(deleted)',
   };
 
+
   try {
     const result = await dynamoDb['query'](params).promise();
 
-    const data = result.Items.filter(({ status }) => status === 'aligned').map(
-      ({ PK: id, title, duration, src, createdAt, updatedAt }) => ({
-        id,
-        fid: title.split(' ').map(t => parseInt(t)).filter(t => !isNaN(t)).reverse().pop(),
-        title,
-        duration,
-        src,
-        createdAt,
-        updatedAt,
-      })
-    );
+    const data = result.Items.filter(({ status }) => status === 'aligned').map(({PK: id, title, duration, src, createdAt, updatedAt}) => ({id, title, duration, src, createdAt, updatedAt}));
+
 
     return success({ data, version, debug: { params } });
   } catch (error) {
@@ -52,7 +44,9 @@ export const transcript = async (event, context) => {
     if (!transcriptItems || transcriptItems.length === 0)
       return notFound({ data: { title: '404 Not Found', status: 404 } });
 
-    const [{ title, duration, src, blocks = [] }] = transcriptItems;
+    const [
+      { title, duration, src, blocks = [] },
+    ] = transcriptItems;
 
     const { Items: blockItems } = await dynamoDb['query']({
       TableName,
@@ -61,50 +55,25 @@ export const transcript = async (event, context) => {
     }).promise();
 
     const content = blocks.map(key => blockItems.find(({ SK }) => SK === `v0_block:${key}`));
-    const paragraphs = content.map(({ start, end, speaker }) => ({ start: start / 1e3, end: end / 1e3, speaker }));
-    const words = content.reduce((acc, { text, speaker, starts, ends, offsets, lengths }) => {
-      // const words = starts.map((start, i) => ({
-      //   start: start / 1e3,
-      //   end: ends[i] / 1e3,
-      //   text: text.substring(offsets[i], offsets[i] + lengths[i]),
-      // }));
+    const paragraphs = content.map(({ start, end }) => ({ start: start / 1e3, end: end / 1e3 }));
+    const words = content.reduce((acc, { text, speaker, starts, ends, offsets, lengths}) => {
+      const words = starts.map((start, i) => ({
+        start: start / 1e3,
+        end: ends[i] / 1e3,
+        text: text.substring(offsets[i], offsets[i] + lengths[i]),
+      }));
 
-      const words = text.split(' ').reduce((acc, token) => {
-        const word = {
-          offset: acc.length > 0 ? acc.map(({ text }) => text).join(' ').length + 1 : 0,
-          length: token.length,
-          text: token,
-        };
-
-        const i = offsets ? offsets.findIndex(j => j >= word.offset) : -1;
-        word.index = i;
-
-        if (i !== -1) {
-          word.start = starts[i] / 1e3;
-          word.end = ends[i] / 1e3;
-        }
-
-        delete word.offset;
-        delete word.length;
-        delete word.index;
-
-        return [...acc, word];
-      }, []);
-
-      // return [...acc, { text: speaker }, { text: ':' }, ...words];
-      return [...acc, ...words];
+      return [...acc, { text: speaker }, { text: ':' }, ...words];
     }, []);
 
     const data = {
-      id: PK,
-      fid: title.split(' ').map(t => parseInt(t)).filter(t => !isNaN(t)).reverse().pop(),
       title,
       src,
       duration,
       content: {
         words,
         paragraphs,
-        // speakers: [],
+        speakers: [],
       },
     };
 

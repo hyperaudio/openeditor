@@ -43,7 +43,7 @@ export const cacheStats = () => console.log('cache', mGET.getStats());
 
 // CRUD
 // CREATE
-// FIXME new API?
+// FIXME new API
 export const newUpload = (PK, title, parent, src) => {
   const body = {
     SK: 'v0_metadata',
@@ -223,6 +223,20 @@ export const getItems = async (project, parent) => {
   );
 };
 
+export const getPath = async (project, parent) => {
+  let { data: p } = await getItem(parent);
+  const path = [p];
+
+  while (p.parent) {
+    p = (await getItem(p.parent)).data;
+    path.push(p);
+  }
+
+  path.pop();
+
+  return path.reverse();
+};
+
 // FIXME new API
 export const getItem = id => mGET(`/data/${id}/v0_metadata`);
 
@@ -266,7 +280,6 @@ export const duplicateTranscript = id => {
   return POST(`/transcript/${id}`, { body: {} });
 };
 window.duplicateTranscript = duplicateTranscript;
-
 
 export const reparagraphTranscript = id => {
   clearCache();
@@ -383,4 +396,126 @@ export const moveToTrash = (id, project) => moveToFolder(id, computeId('TRASH', 
 //   ],
 // });
 
+//
+// WSfgTYHNC4KWP99jKZFdvR
 
+// ad223c12-145f-4284-a586-74b19cde94d5
+
+// const response = await API.post('ApiGatewayRestApi', '/data', {
+//   body: {
+//     PK: username,
+//     SK: 'v0_projects',
+//     RowType: 'projects',
+//     projects: ['WSfgTYHNC4KWP99jKZFdvR'],
+//   },
+// });
+// console.log(response);
+
+// const response = await API.post('ApiGatewayRestApi', '/data', {
+//   body: {
+//     PK: 'WSfgTYHNC4KWP99jKZFdvR',
+//     SK: 'v0_metadata',
+//     RowType: 'project',
+
+//     abbr: 'ST',
+//     title: 'STRA',
+//     color: '#f56a00',
+//     backgroundColor: '#ddddcf',
+//   },
+// });
+// console.log(response);
+
+//
+
+// const response = await API.post('ApiGatewayRestApi', '/data', {
+//   body: {
+//     PK: 'AvzxE5ffDWWBF3TG66MWMv',
+//     SK: 'v0_parent:WSfgTYHNC4KWP99jKZFdvR',
+//     RowType: 'folder',
+//     title: 'Folder B',
+//   },
+// });
+// console.log(response);
+
+// const response = await API.post('ApiGatewayRestApi', '/data', {
+//   body: {
+//     PK: 'N8AZiQm3rPK8LNtrmexaiT',
+//     SK: 'v0_parent:WSfgTYHNC4KWP99jKZFdvR',
+//     RowType: 'file',
+//     title: 'Simone De Beauvoir Part 2',
+//     duration: 3600000,
+//     status: 'aligning',
+//   },
+// });
+// console.log(response);
+
+// assume current project is 1st
+// const project = projects[0];
+// const items = await API.get('ApiGatewayRestApi', `/data`, {
+//   queryStringParameters: {
+//     IndexName: 'SK-index',
+//     SK: `v0_parent:${project.PK}`,
+//     PK: null,
+//   },
+// });
+// console.log(`project ${project.title} root items`, items);
+
+// // polulate root items
+// this.setState({
+//   data: [
+//     ...items.data.map(
+//       ({ PK, title, updatedAt, updatedBy, createdAt, createdBy, RowType, status = 'folder', duration = '--' }) => ({
+//         key: PK,
+//         title,
+//         user: updatedBy,
+//         edited: updatedAt,
+//         added: createdAt,
+//         duration,
+//         status,
+//         type: RowType,
+//       })
+//     ),
+//     ...this.state.data,
+//   ],
+// });
+
+// const projects = [
+//   'A7MnRK4jcagRkmJ9pxLn8g',
+//   '3EetqhQ1fM4iR7xeQtDmov',
+//   'FeKdpfX29sLhjruCwPp4jG',
+//   'Nxa5Ht276wMg1zgqaTPk33',
+//   'AcQD8t1tKZV66adjSjhDaY',
+//   'CcmKZmRdTctmsWjQ51gk9Y',
+//   'WSfgTYHNC4KWP99jKZFdvR',
+// ];
+
+// const users = [
+//   '89d6161e-7e0d-4a65-a640-d8760254d92d',
+//   '6e18401b-1109-4ddd-9d27-e1d7f9a639fa',
+//   '07a2730f-000e-4518-8d37-523c9f584c38',
+//   '6da2f0ec-57ac-4879-8224-f99905983b0a',
+//   'e86fd409-77a8-4312-9e2d-909fdec8a344',
+//   '2d5a9744-e3cc-4750-ac0a-59a4f31c5a5a',
+//   '99827d27-dca3-406f-a5b5-79dd8a2741c2',
+//   '7b8a7590-5b87-4a24-b8f4-b2c933882417',
+//   '9c248a67-56fc-4eda-994c-cb24ed963198',
+//   '291d75ce-28d4-4625-861a-4b3cd8de5ade',
+//   '15d626d9-16e6-415e-95e2-8df24efb95d7',
+//   '885351bb-2e1a-473d-ab87-26c5ab5f83ef',
+//   '26eed2e6-0815-4d24-b443-1507b0b56313',
+//   '1cb8a574-26e2-425d-b6fc-2dc609239aa0',
+//   '05b53e72-c1c2-4335-8dc6-448d12bbb82a',
+//   'db6b4f44-2499-4c92-a3ea-71f5c043283d',
+// ];
+
+// const BOOM = async () => {
+//   // const data = await Promise.all(users.map(user => GET(`/user/${user}/projects`)));
+//   // console.log(data);
+
+//   users.forEach(async user => {
+//     const { data } = await GET(`/user/${user}/projects`);
+//     for
+//   });
+
+// };
+// window.BOOM = BOOM;

@@ -21,7 +21,3 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-src/openeditor-auth-stack.json
-src/openeditor-storage-stack.json
-src/openeditor-stack.json

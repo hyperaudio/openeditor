@@ -9,7 +9,7 @@ provider:
   profile: ${file(../config.yml):profiles.${self:provider.stage}}
   region: ${opt:region, "us-east-2"}
   stage: ${opt:stage, "dev"}
-  runtime: nodejs12.x
+  runtime: nodejs10.x
   deploymentBucket:
     name: ${file(../config.yml):prefix}-${self:provider.stage}-deployment-${file(../config.yml):suffix}
 

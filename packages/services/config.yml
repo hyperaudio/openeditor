@@ -1,0 +1,6 @@
+prefix: openeditor
+suffix: n5v4ltxhx
+
+profiles:
+  dev: openeditor
+  prod: openeditor

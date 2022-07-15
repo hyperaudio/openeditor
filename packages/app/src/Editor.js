@@ -1,21 +1,26 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { Prompt } from 'react-router-dom';
+import { Map } from 'immutable';
 import {
   Editor,
+  EditorBlock,
   EditorState,
   ContentState,
-  SelectionState,
   CompositeDecorator,
   convertFromRaw,
   convertToRaw,
   Modifier,
+  SelectionState,
 } from 'draft-js';
 import chunk from 'lodash.chunk';
 import debounce from 'p-debounce';
 import VisibilitySensor from 'react-visibility-sensor';
+import Timecode from 'smpte-timecode';
 import {
   message,
   Empty,
+  AutoComplete,
   Form,
   Button,
   Tooltip,
@@ -28,16 +33,25 @@ import {
   Drawer,
   Row,
   Col,
+  Popover,
+  Badge,
   Spin,
+  BackTop,
 } from 'antd';
 
-import { alignSTT } from '@bbc/stt-align-node';
+// import { alignSTT } from '@bbc/stt-align-node';
 import { SequenceMatcher } from 'difflib';
 
-import CustomBlock from './CustomBlock.js';
+import WaveformData from 'waveform-data';
+import wavefont from 'wavefont';
+
+import waveform from './data/wave.json';
 
 import exportTranscript from './utils/exportTranscript.js';
 import { updateTranscript, getTranscript, generateId } from './api';
+import matchCorrection from './overtyper/matchCorrection';
+import applyCorrection from './overtyper/applyCorrection';
+import isMatchComplete from './overtyper/isMatchComplete';
 
 const { Content } = Layout;
 const RadioGroup = Radio.Group;
@@ -52,6 +66,192 @@ message.config({ top: 100 });
 
 const WAVE = false;
 
+// const PortalAutoComplete = ({ speaker, setSpeaker, speakers, onFocus, handleBlur }) => {
+//   return ReactDOM.createPortal(
+//     <AutoComplete
+//       dataSource={speakers.includes(speaker) || speaker === '' ? speakers : [speaker, ...speakers]}
+//       value={speaker}
+//       onSelect={setSpeaker}
+//       // onSearch={setSpeaker}
+//       onChange={setSpeaker}
+//       placeholder="speaker name"
+//       onFocus={onFocus}
+//       onBlur={handleBlur}
+//     />,
+//     document.getElementById('root2')
+//   );
+//   // return null;
+
+//   // return (
+//   //   <AutoComplete
+//   //     dataSource={speakers.includes(speaker) || speaker === '' ? speakers : [speaker, ...speakers]}
+//   //     value={speaker}
+//   //     onSelect={setSpeaker}
+//   //     // onSearch={setSpeaker}
+//   //     onChange={setSpeaker}
+//   //     placeholder="speaker name"
+//   //     onFocus={onFocus}
+//   //     onBlur={handleBlur}
+//   //   />
+//   // );
+// };
+
+class CustomBlock extends React.Component {
+  constructor(props) {
+    super(props);
+
+    const status = props.block.getData().get('status');
+
+    const speaker = props.block.getData().get('speaker');
+    this.state = {
+      speaker: speaker ?? '',
+      status: status ? status : 'transcribed',
+    };
+  }
+
+  toggleStatus = () => {
+    const {
+      block,
+      blockProps: { changeBlockData },
+    } = this.props;
+
+    this.setState({ status: this.state.status === 'corrected' ? 'edited' : 'corrected' }, () =>
+      changeBlockData(block, this.state)
+    );
+  };
+
+  setSpeaker = speaker => {
+    console.log({ speaker });
+    this.setState({ speaker });
+  };
+
+  align = () => {
+    const {
+      block,
+      blockProps: { alignBlock },
+    } = this.props;
+
+    alignBlock(block);
+  };
+
+  handleFocus = () => {
+    console.log('FOCUS');
+
+    const {
+      block,
+      blockProps: { changeBlockData, onFocus },
+    } = this.props;
+
+    onFocus();
+  };
+
+  handleBlur = () => {
+    console.log('BLUR');
+
+    const {
+      block,
+      blockProps: { changeBlockData, onBlur },
+    } = this.props;
+
+    changeBlockData(block, this.state);
+    onBlur();
+  };
+
+  render() {
+    const {
+      block,
+      blockProps: { speakers, onFocus },
+    } = this.props;
+    const { speaker, status } = this.state;
+
+    const start = block.getData().get('start');
+    // const end = block.getData().get('end');
+    // const wave = block.getData().get('wave');
+    const key = block.getKey();
+    const type = block.getType();
+
+    const [hh, mm, ss] = new Timecode((start / 1e3) * 30, 30)
+      .toString()
+      .split(':')
+      .slice(0, 3);
+
+    return (
+      <Row gutter={24} className="WrapperBlock" data-start={start} key={key}>
+        <Col span={2} className="timecode" contentEditable={false} onClick={e => e.stopPropagation()}>
+          <span className={hh === '00' ? 'zero' : null}>{hh}</span>
+          <span className="separator">:</span>
+          <span className={hh === '00' && mm === '00' ? 'zero' : null}>
+            {mm.charAt(0) !== '0' ? (
+              mm
+            ) : (
+              <>
+                <span className="zero">0</span>
+                {mm.charAt(1)}
+              </>
+            )}
+          </span>
+          <span className="separator">:</span>
+          <span>{ss}</span>
+          {/* <br />[{start} - {end}] */}
+        </Col>
+        <Col
+          span={2}
+          className="speaker"
+          contentEditable={false}
+          onClick={e => e.stopPropagation()}
+          // onKeyDown={e => e.stopPropagation()}
+          // onKeyPress={e => e.stopPropagation()}
+          // onKeyUp={e => e.stopPropagation()}
+        >
+          <Popover
+            content={
+              <AutoComplete
+                // {...{ speaker, setSpeaker: this.setSpeaker, speakers, onFocus, handleBlur: this.handleBlur }}
+
+                dataSource={speakers.includes(speaker) || speaker === '' ? speakers : [speaker, ...speakers]}
+                value={speaker}
+                onSelect={this.setSpeaker}
+                // onSearch={this.setSpeaker}
+                onChange={this.setSpeaker}
+                placeholder="speaker name"
+                onFocus={this.handleFocus}
+                onBlur={this.handleBlur}
+              />
+            }
+            trigger="click"
+          >
+            {speaker !== null && speaker.trim().length > 0 ? speaker.trim() : <i>empty</i>}
+          </Popover>
+        </Col>
+        <Col span={16} className={type === 'waveform' ? 'wave' : ''}>
+          {/* <div contentEditable={false} className="wave">
+            {wave}
+          </div> */}
+          <VisibilitySensor intervalCheck={false} scrollCheck={true} partialVisibility={true}>
+            {({ isVisible }) =>
+              isVisible ? (
+                <EditorBlock {...this.props} />
+              ) : (
+                <div className="text" contentEditable={false}>
+                  {block.text}
+                </div>
+              )
+            }
+          </VisibilitySensor>
+        </Col>
+        <Col span={1} offset={1} className="status" contentEditable={false} onClick={e => e.stopPropagation()}>
+          <Badge status={status === 'corrected' ? 'success' : 'default'} text={status} onClick={this.toggleStatus} />
+          {/*
+          <Button type="dashed" size="small" onClick={this.align}>
+            align
+          </Button>
+           */}
+        </Col>
+      </Row>
+    );
+  }
+}
+
 class TranscriptEditor extends React.Component {
   constructor(props) {
     super(props);
@@ -65,8 +265,9 @@ class TranscriptEditor extends React.Component {
       exportValue: 1,
       blockNavigation: false,
       overtype: '',
-      search: '',
-      replace: '',
+      playheadChange: Date.now(),
+      currentEditorKey: null,
+      scrollY: 0,
     };
 
     this.queue = [];
@@ -120,23 +321,34 @@ class TranscriptEditor extends React.Component {
     return true;
   }
 
-  componentDidUpdate() {
-    const { overtyperVisible, playheadEntityKey, playheadIgnore } = this.state;
+  componentDidUpdate(prevProps, prevState) {
+    const {
+      overtyperVisible,
+      playheadEntityKey,
+      playheadIgnore,
+      playheadChange,
+      currentEditorKey,
+      scrollY,
+    } = this.state;
     if (overtyperVisible && playheadEntityKey) {
       const playhead = document.querySelector(`span[data-entity-key="${playheadEntityKey}"]`);
       if (playhead) playhead.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-    } else if (playheadEntityKey && !playheadIgnore) {
+    } else if (playheadEntityKey && !playheadIgnore && playheadChange !== prevState.playheadChange) {
       const playhead = document.querySelector(`span[data-entity-key="${playheadEntityKey}"]`);
-      console.log({ playhead });
-      // if (!playhead) this.setPlayhead();
+      if (!playhead) this.setPlayhead();
+    }
+
+    if (playheadChange !== prevState.playheadChange && currentEditorKey) {
+      // console.log({ scrollY });
+      // this.editorRefs[currentEditorKey].focus(scrollY);
+      window.scrollTo(0, scrollY);
     }
   }
 
   setDomEditorRef = (key, ref) => (this.editorRefs[key] = ref);
 
   setPlayhead = (time = this.props.time * 1e3) => {
-    console.log('setPlayhead', time);
-
+    // console.log('setPlayhead', time);
     this.state.editors.forEach(({ editorState, key: playheadEditorKey }) => {
       const contentState = editorState.getCurrentContent();
       const blocks = contentState.getBlocksAsArray();
@@ -150,7 +362,6 @@ class TranscriptEditor extends React.Component {
 
       if (playheadBlockIndex > -1) {
         const playheadBlock = blocks[playheadBlockIndex];
-        console.log({ playheadBlock });
         const entities = [
           ...new Set(
             playheadBlock
@@ -166,10 +377,8 @@ class TranscriptEditor extends React.Component {
         });
 
         const playheadEntity = entities[playheadEntityIndex];
-        console.log({ playheadEntity });
 
         if (playheadEntity) {
-          console.log(contentState.getEntity(playheadEntity).getData());
           const { key } = contentState.getEntity(playheadEntity).getData();
           if (key === this.state.playheadEntityKey) return;
 
@@ -208,8 +417,6 @@ class TranscriptEditor extends React.Component {
             textWindowStart,
             // textBlock: text.split(' '),
           });
-
-          console.log({ key });
         } else {
           this.setState({ playheadEditorKey, playheadBlockKey: playheadBlock.getKey(), playheadIgnore: true });
         }
@@ -217,11 +424,27 @@ class TranscriptEditor extends React.Component {
     });
   };
 
-  addSpeaker = speaker => {
-    const { speakers } = this.state;
-    if (speakers.includes(speaker)) return;
+  handleOvertyperInput = ({ nativeEvent }) => {
+    const { value } = nativeEvent.srcElement;
+    if (this.props.player) this.props.player.pause();
+    // alignBlock?
+    console.log({ textWindow: this.state.textWindow, value });
+    const match = matchCorrection(
+      this.state.textWindow.map(({ text }) => text),
+      value
+    );
 
-    this.setState({ speakers: [...new Set([speaker, ...speakers])] });
+    this.setState({ match, overtype: value });
+    console.log(match);
+  };
+
+  applyOvertyper = ({ nativeEvent }) => {
+    if (this.state.match && isMatchComplete(this.state.match)) {
+      console.log(applyCorrection(this.state.fullWindow, this.state.textWindowStart, this.state.match));
+    }
+    this.setState({ match: null, overtype: '' });
+    nativeEvent.srcElement.value = '';
+    if (this.props.player) this.props.player.play();
   };
 
   customBlockRenderer = contentBlock => {
@@ -231,8 +454,7 @@ class TranscriptEditor extends React.Component {
         component: CustomBlock,
         editable: type === 'paragraph',
         props: {
-          speakers: [...new Set(this.state.speakers)],
-          addSpeaker: this.addSpeaker,
+          speakers: this.state.speakers,
           onFocus: () => this.setState({ readOnly: true }),
           onBlur: () => this.setState({ readOnly: false }),
           changeBlockData: this.changeBlockData,
@@ -266,6 +488,8 @@ class TranscriptEditor extends React.Component {
   };
 
   changeBlockData = (block, data) => {
+    const { speakers } = this.state;
+
     const blockKey = block.getKey();
     const editor = this.state.editors.find(
       editor =>
@@ -279,138 +503,156 @@ class TranscriptEditor extends React.Component {
 
     const editorState = editor.editorState;
     const currentContent = editorState.getCurrentContent();
-    const blocks = createRaw(currentContent.getBlocksAsArray(), currentContent);
-    blocks.find(({ key }) => key === blockKey).data = { ...block.getData().toJS(), ...data };
+    // const blocks = createRaw(currentContent.getBlocksAsArray(), currentContent);
+    // blocks.find(({ key }) => key === blockKey).data = { ...block.getData().toJS(), ...data };
 
-    console.log(blocks);
+    // const entityMap = createEntityMap(blocks);
 
-    const entityMap = createEntityMap(blocks);
+    // const contentState = convertFromRaw({
+    //   blocks,
+    //   entityMap,
+    // });
 
-    const contentState = convertFromRaw({
-      blocks,
-      entityMap,
-    });
+    const speaker = data.speaker;
+    if (speaker !== null && speaker.trim().length > 0 && !speakers.includes(speaker.trim()))
+      this.setState({ speakers: [speaker, ...speakers] });
 
-    this.onChange(EditorState.push(editorState, contentState, 'change-block-data'), editor.key);
+    const blockData = block.getData();
+    const contentStateWithBlockData = Modifier.setBlockData(
+      currentContent,
+      SelectionState.createEmpty(blockKey),
+      Map({ start: blockData.get('start'), end: blockData.get('end'), speaker: data.speaker })
+    );
+
+    const newEditorState = EditorState.forceSelection(
+      EditorState.push(editorState, contentStateWithBlockData, 'change-block-data'),
+      editorState.getSelection()
+    );
+
+    const editorIndex = this.state.editors.findIndex(ed => ed.key === editor.key);
+    const prevEditorState = this.state.editors[editorIndex].editorState;
+
+    this.setState(
+      {
+        blockKey,
+        editors: [
+          ...this.state.editors.slice(0, editorIndex),
+          { editorState: newEditorState, key: editor.key, previewState: createPreview(newEditorState) },
+          ...this.state.editors.slice(editorIndex + 1),
+        ],
+      },
+      () => this.saveState(prevEditorState, newEditorState)
+    );
+
+    // this.onChange(EditorState.push(editorState, contentStateWithBlockData, 'change-block-data'), editor.key);
   };
 
   alignBlock = (block, skipUpdate = false) => {
-    const blockKey = block.getKey();
-    console.log('alignBlock', blockKey);
-    const editor = this.state.editors.find(
-      editor =>
-        !!editor.editorState
-          .getCurrentContent()
-          .getBlocksAsArray()
-          .find(block => block.getKey() === blockKey)
-    );
-
-    const editorState = editor.editorState;
-    const currentContent = editorState.getCurrentContent();
-    const blocks = createRaw(currentContent.getBlocksAsArray(), currentContent);
-
-    const blockIndex = blocks.findIndex(({ key }) => key === blockKey);
-
-    const text = blocks[blockIndex].text;
-    let words = blocks[blockIndex].entityRanges
-      .map(({ start, end, offset, length }) => ({
-        start: start / 1e3,
-        end: end / 1e3,
-        text: text.substring(offset, offset + length).trim(),
-      }))
-      .filter(({ text }) => text.length > 0);
-
-    console.log(text === words.map(({ text }) => text).join(' '), text, words.map(({ text }) => text).join(' '));
-    if (text === words.map(({ text }) => text).join(' ')) return blocks[blockIndex];
-
-    words = [
-      {
-        text: 'STARTSTART',
-        start: words[0].start - (0.08475 + 0.05379 * 'STARTSTART'.length),
-        end: words[0].start,
-      },
-      ...words,
-      {
-        text: 'ENDEND',
-        start: words[words.length - 1].end,
-        end: words[words.length - 1].end + 0.08475 + 0.05379 * 'ENDEND'.length,
-      },
-    ];
-
-    const resultAligned = alignSTT(
-      {
-        words,
-      },
-      `STARTSTART ${text} ENDEND`
-    );
-
-    // const matcher = new SequenceMatcher(null, words.map(({ text }) => text), resultAligned.map(({ text }) => text));
-    // const opCodes = matcher.getOpcodes();
-    // console.log(
-    //   { text: `STARTSTART ${text} ENDEND`, input: words, output: resultAligned },
-    //   opCodes.map(([op, a, b, c, d]) => ({
-    //     op,
-    //     input: words.slice(a, b),
-    //     output: resultAligned.slice(c, d),
+    // NOOP
+    // const blockKey = block.getKey();
+    // console.log('alignBlock', blockKey);
+    // const editor = this.state.editors.find(
+    //   editor =>
+    //     !!editor.editorState
+    //       .getCurrentContent()
+    //       .getBlocksAsArray()
+    //       .find(block => block.getKey() === blockKey)
+    // );
+    // const editorState = editor.editorState;
+    // const currentContent = editorState.getCurrentContent();
+    // const blocks = createRaw(currentContent.getBlocksAsArray(), currentContent);
+    // const blockIndex = blocks.findIndex(({ key }) => key === blockKey);
+    // const text = blocks[blockIndex].text;
+    // let words = blocks[blockIndex].entityRanges
+    //   .map(({ start, end, offset, length }) => ({
+    //     start: start / 1e3,
+    //     end: end / 1e3,
+    //     text: text.substring(offset, offset + length).trim(),
     //   }))
+    //   .filter(({ text }) => text.length > 0);
+    // console.log(text === words.map(({ text }) => text).join(' '), text, words.map(({ text }) => text).join(' '));
+    // if (text === words.map(({ text }) => text).join(' ')) return blocks[blockIndex];
+    // words = [
+    //   {
+    //     text: 'STARTSTART',
+    //     start: words[0].start - (0.08475 + 0.05379 * 'STARTSTART'.length),
+    //     end: words[0].start,
+    //   },
+    //   ...words,
+    //   {
+    //     text: 'ENDEND',
+    //     start: words[words.length - 1].end,
+    //     end: words[words.length - 1].end + 0.08475 + 0.05379 * 'ENDEND'.length,
+    //   },
+    // ];
+    // const resultAligned = alignSTT(
+    //   {
+    //     words,
+    //   },
+    //   `STARTSTART ${text} ENDEND`
     // );
-
-    resultAligned.splice(0, 1);
-    resultAligned.pop();
-
-    blocks[blockIndex].entityRanges = resultAligned
-      .reduce((acc, { start, end, text }) => {
-        const p = acc.pop();
-        return [
-          ...acc,
-          p,
-          {
-            key: generateId(),
-            start: start * 1e3,
-            end: end * 1e3,
-            offset: p ? p.offset + p.length + 1 : 0,
-            length: text.length,
-          },
-        ];
-      }, [])
-      .filter(e => !!e);
-
-    blocks[blockIndex].text = resultAligned.map(({ text }) => text).join(' ');
-
-    if (skipUpdate) return blocks[blockIndex];
-
-    const entityMap = createEntityMap(blocks);
-
-    // const newEditorState = EditorState.push(
-    //   editorState,
-    //   convertFromRaw({
-    //     blocks,
-    //     entityMap,
-    //   }),
-    //   'change-block-data'
+    // // const matcher = new SequenceMatcher(null, words.map(({ text }) => text), resultAligned.map(({ text }) => text));
+    // // const opCodes = matcher.getOpcodes();
+    // // console.log(
+    // //   { text: `STARTSTART ${text} ENDEND`, input: words, output: resultAligned },
+    // //   opCodes.map(([op, a, b, c, d]) => ({
+    // //     op,
+    // //     input: words.slice(a, b),
+    // //     output: resultAligned.slice(c, d),
+    // //   }))
+    // // );
+    // resultAligned.splice(0, 1);
+    // resultAligned.pop();
+    // blocks[blockIndex].entityRanges = resultAligned
+    //   .reduce((acc, { start, end, text }) => {
+    //     const p = acc.pop();
+    //     return [
+    //       ...acc,
+    //       p,
+    //       {
+    //         key: generateId(),
+    //         start: start * 1e3,
+    //         end: end * 1e3,
+    //         offset: p ? p.offset + p.length + 1 : 0,
+    //         length: text.length,
+    //       },
+    //     ];
+    //   }, [])
+    //   .filter(e => !!e);
+    // blocks[blockIndex].text = resultAligned.map(({ text }) => text).join(' ');
+    // if (skipUpdate) return blocks[blockIndex];
+    // const entityMap = createEntityMap(blocks);
+    // // const newEditorState = EditorState.push(
+    // //   editorState,
+    // //   convertFromRaw({
+    // //     blocks,
+    // //     entityMap,
+    // //   }),
+    // //   'change-block-data'
+    // // );
+    // const newEditorState = EditorState.set(
+    //   EditorState.createWithContent(
+    //     convertFromRaw({
+    //       blocks: blocks,
+    //       entityMap,
+    //     }),
+    //     decorator
+    //   ),
+    //   {
+    //     selection: editorState.getSelection(),
+    //     undoStack: editorState.getUndoStack(),
+    //     redoStack: editorState.getRedoStack(),
+    //     lastChangeType: editorState.getLastChangeType(),
+    //     allowUndo: true,
+    //   }
     // );
-
-    const newEditorState = EditorState.set(
-      EditorState.createWithContent(
-        convertFromRaw({
-          blocks: blocks,
-          entityMap,
-        }),
-        decorator
-      ),
-      {
-        selection: editorState.getSelection(),
-        undoStack: editorState.getUndoStack(),
-        redoStack: editorState.getRedoStack(),
-        lastChangeType: editorState.getLastChangeType(),
-        allowUndo: true,
-      }
-    );
-
-    this.onChange(newEditorState, editor.key);
+    // this.onChange(newEditorState, editor.key);
   };
 
   onChange = (editorState, key) => {
+    if (this.state.readOnly) return;
+    console.log({ editorState, key });
+
     const editorIndex = this.state.editors.findIndex(editor => editor.key === key);
     const prevEditorState = this.state.editors[editorIndex].editorState;
 
@@ -418,7 +660,7 @@ class TranscriptEditor extends React.Component {
       editorState.getCurrentContent() === this.state.editors[editorIndex].editorState.getCurrentContent()
         ? null
         : editorState.getLastChangeType();
-    console.log(contentChange);
+    console.log({ contentChange });
 
     const blockKey = editorState.getSelection().getStartKey();
 
@@ -438,41 +680,110 @@ class TranscriptEditor extends React.Component {
         .getBlockMap()
         .toArray();
 
-      const blocks = [
-        ...createRaw(blocksA, editorStateA.getCurrentContent()),
-        ...createRaw(blocksB, editorStateB.getCurrentContent()),
-      ];
+      if (true && blocksA.length < 20) {
+        const blocks = [
+          ...createRaw(blocksA, editorStateA.getCurrentContent()),
+          ...createRaw(blocksB, editorStateB.getCurrentContent()),
+        ];
 
-      const entityMap = createEntityMap(blocks);
+        const entityMap = createEntityMap(blocks);
 
-      const editorStateAB = EditorState.set(
-        EditorState.createWithContent(
-          convertFromRaw({
-            blocks,
-            entityMap,
-          }),
-          decorator
-        ),
-        {
-          selection: editorStateA.getSelection(),
-          // undoStack: editorStateA.getUndoStack(),
-          // redoStack: editorStateA.getRedoStack(),
-          lastChangeType: editorStateA.getLastChangeType(),
-          allowUndo: true,
-        }
-      );
+        const editorStateAB = EditorState.set(
+          EditorState.createWithContent(
+            convertFromRaw({
+              blocks,
+              entityMap,
+            }),
+            decorator
+          ),
+          {
+            selection: editorStateA.getSelection(),
+            // undoStack: editorStateA.getUndoStack(),
+            // redoStack: editorStateA.getRedoStack(),
+            lastChangeType: editorStateA.getLastChangeType(),
+            allowUndo: true,
+          }
+        );
 
-      // const prevEditorState = this.state.editors[editorIndex].editorState;
-      this.setState(
-        {
-          editors: [
-            ...this.state.editors.slice(0, editorIndex),
-            { editorState: editorStateAB, key, previewState: createPreview(editorStateAB) },
-            ...this.state.editors.slice(editorIndex + 2),
-          ],
-        }
-        // () => this.saveState(prevEditorState, editorStateAB)
-      );
+        // const prevEditorState = this.state.editors[editorIndex].editorState;
+        this.setState(
+          {
+            playheadChange: Date.now(),
+            currentEditorKey: key,
+            scrollY: window.scrollY,
+            editors: [
+              ...this.state.editors.slice(0, editorIndex),
+              { editorState: editorStateAB, key, previewState: createPreview(editorStateAB) },
+              ...this.state.editors.slice(editorIndex + 2),
+            ],
+          }
+          // () => setTimeout(() => this.setPlayhead(), 200)
+        );
+      } else {
+        const blocksAB = [
+          ...createRaw(blocksA.slice(-10), editorStateA.getCurrentContent()),
+          ...createRaw(blocksB, editorStateB.getCurrentContent()),
+        ];
+
+        const entityMapAB = createEntityMap(blocksAB);
+
+        const editorStateAB = EditorState.set(
+          EditorState.createWithContent(
+            convertFromRaw({
+              blocks: blocksAB,
+              entityMap: entityMapAB,
+            }),
+            decorator
+          ),
+          {
+            selection: editorStateA.getSelection(),
+            // undoStack: editorStateA.getUndoStack(),
+            // redoStack: editorStateA.getRedoStack(),
+            lastChangeType: editorStateA.getLastChangeType(),
+            allowUndo: true,
+          }
+        );
+
+        const blocksC = [...createRaw(blocksA.slice(0, blocksA.length - 10), editorStateA.getCurrentContent())];
+
+        const entityMapC = createEntityMap(blocksC);
+
+        const editorStateC = EditorState.set(
+          EditorState.createWithContent(
+            convertFromRaw({
+              blocks: blocksC,
+              entityMap: entityMapC,
+            }),
+            decorator
+          ),
+          {
+            // selection: editorStateA.getSelection(),
+            // undoStack: editorStateA.getUndoStack(),
+            // redoStack: editorStateA.getRedoStack(),
+            lastChangeType: editorStateA.getLastChangeType(),
+            allowUndo: true,
+          }
+        );
+
+        // const block = blocksA.slice(-10).slice(-1)[0];
+        // const start = block.getData().get('start');
+
+        // const prevEditorState = this.state.editors[editorIndex].editorState;
+        this.setState(
+          {
+            playheadChange: Date.now(),
+            currentEditorKey: key,
+            scrollY: window.scrollY,
+            editors: [
+              ...this.state.editors.slice(0, editorIndex),
+              { editorState: editorStateC, key: `editor-${generateId()}`, previewState: createPreview(editorStateC) },
+              { editorState: editorStateAB, key, previewState: createPreview(editorStateAB) },
+              ...this.state.editors.slice(editorIndex + 2),
+            ],
+          }
+          // () => setTimeout(() => this.setPlayhead(), 200)
+        );
+      }
     } else if (contentChange === 'split-block') {
       const splitBlocks = createRaw(blocks, editorState.getCurrentContent());
 
@@ -603,6 +914,7 @@ class TranscriptEditor extends React.Component {
 
   saveState = (editorStateA, editorStateB) => {
     const changes = this.getSegmentChanges(editorStateA, editorStateB);
+
     if (!changes || changes.length === 0) return;
     console.log({ changes });
 
@@ -611,7 +923,14 @@ class TranscriptEditor extends React.Component {
   };
 
   save = async () => {
-    const changes = this.getChanges(this.state.prevEditors);
+    const changes = this.getChanges(this.state.prevEditors).map((block, i, arr) => {
+      if (i > 0) {
+        const prevBlock = arr[i - 1];
+        return { ...block, start: block.start ?? prevBlock.start, end: block.end ?? block.start ?? prevBlock.start };
+      }
+      return { ...block, end: block.end ?? block.start };
+    });
+
     console.log({ allChanges: changes });
     if (!changes || changes.length === 0) {
       this.setState({ blockNavigation: false });
@@ -662,6 +981,8 @@ class TranscriptEditor extends React.Component {
         const key = block.getKey();
         const blockA = editorStateA && blocksA.find(blockA => blockA.getKey() === key);
 
+        // console.log({ block, blockA });
+
         if (
           !blockA ||
           block.getText() !== blockA.getText() ||
@@ -709,11 +1030,13 @@ class TranscriptEditor extends React.Component {
     const { data: transcript } = await getTranscript(id);
     console.log(transcript);
 
-    const { blocks } = transcript;
+    const { blocks, status } = transcript;
     if (!blocks || blocks.length === 0) {
       this.setState({ loading: false, import: true });
       return;
     }
+
+    const readOnly = status === 'aligning' || status === 'aligned';
 
     const editors = chunk(blocks, 10).map(segments => {
       const blocks = segments
@@ -745,7 +1068,7 @@ class TranscriptEditor extends React.Component {
               text,
               key: key.substring('v0_block:'.length),
               type: 'paragraph',
-              data: { start, end, speaker, status },
+              data: { start, end, speaker: speaker ?? '', status },
               // entityRanges: [],
               entityRanges: keys.map((key, i) => {
                 return {
@@ -763,7 +1086,81 @@ class TranscriptEditor extends React.Component {
         .reduce((acc, block, index, blocks) => {
           if (block.entityRanges.length === 0) block.entityRanges = [{ offset: 0, length: 1 }];
           if (index < 1 || !WAVE) return [...acc, block];
+          // const { start: end } = block.data;
+          // const {
+          //   data: { end: start },
+          //   key,
+          // } = blocks[index - 1];
+
+          // const i = (start * 2 * waveform.sample_rate) / waveform.samples_per_pixel / 1e3;
+          // const j = (end * 2 * waveform.sample_rate) / waveform.samples_per_pixel / 1e3;
+          // const segment = waveform.data.slice(i, j);
+
+          // const min = Math.min(...segment);
+          // const max = Math.max(...segment);
+
+          // const text = segment.map(v => (v === 0 ? 0 : v > 0 ? v / max : -v / min)).map(wavefont);
+
+          // const chunkSize = 2;
+          // const waveblock = {
+          //   text: text.join(''),
+          //   key: `wave-${key}`,
+          //   type: 'waveform',
+          //   data: { start, end },
+          //   // entityRanges: [],
+          //   entityRanges: chunk(text, chunkSize).map((key, i) => {
+          //     return {
+          //       start: start + (1e3 * i * waveform.samples_per_pixel) / waveform.sample_rate,
+          //       end: start + (1e3 * (i + 1) * waveform.samples_per_pixel) / waveform.sample_rate,
+          //       offset: i * chunkSize,
+          //       length: chunkSize,
+          //       key: generateId(),
+          //     };
+          //   }),
+          //   inlineStyleRanges: [],
+          // };
+
+          // return [...acc, waveblock, block];
         }, []);
+      // ???
+      // .reduce((acc, block, index, blocks) => {
+      //   if (index < 1) return [...acc, block];
+      //   const { start: end } = block.data;
+      //   const {
+      //     data: { end: start },
+      //     key,
+      //   } = blocks[index - 1];
+
+      //   const i = (start * 2 * waveform.sample_rate) / waveform.samples_per_pixel / 1e3;
+      //   const j = (end * 2 * waveform.sample_rate) / waveform.samples_per_pixel / 1e3;
+      //   const segment = waveform.data.slice(i, j);
+
+      //   const min = Math.min(...segment);
+      //   const max = Math.max(...segment);
+
+      //   const text = segment.map(v => (v === 0 ? 0 : v > 0 ? v / max : -v / min)).map(wavefont);
+
+      //   const chunkSize = 2;
+      //   const waveblock = {
+      //     text: text.join(''),
+      //     key: `wave-${key}`,
+      //     type: 'waveform',
+      //     data: { start, end },
+      //     // entityRanges: [],
+      //     entityRanges: chunk(text, chunkSize).map((key, i) => {
+      //       return {
+      //         start: start + (1e3 * i * waveform.samples_per_pixel) / waveform.sample_rate,
+      //         end: start + (1e3 * (i + 1) * waveform.samples_per_pixel) / waveform.sample_rate,
+      //         offset: i * chunkSize,
+      //         length: chunkSize,
+      //         key: generateId(),
+      //       };
+      //     }),
+      //     inlineStyleRanges: [],
+      //   };
+
+      //   return [...acc, waveblock, block];
+      // }, []);
 
       const editorState = EditorState.set(
         EditorState.createWithContent(convertFromRaw({ blocks, entityMap: createEntityMap(blocks) }), decorator),
@@ -779,7 +1176,7 @@ class TranscriptEditor extends React.Component {
       };
     });
 
-    const speakers = [...new Set(blocks.filter(block => !!block).map(b => b.speaker))].filter(s => !!s);
+    const speakers = [...new Set(blocks.filter(block => !!block).map(b => b.speaker))].filter(s => !!s && s !== '');
 
     const playheadEditorKey = editors[0].key;
     const playheadBlock = editors[0].editorState.getCurrentContent().getBlocksAsArray()[0];
@@ -802,6 +1199,7 @@ class TranscriptEditor extends React.Component {
     if (this.props.player && start) this.props.player.currentTime = start / 1e3;
 
     this.setState({
+      readOnly,
       title: transcript.title,
       editors,
       speakers,
@@ -841,30 +1239,25 @@ class TranscriptEditor extends React.Component {
     return 'handled';
   };
 
-  renderEditor = ({ editorState, key, previewState }, search, match) => {
+  renderEditor = ({ editorState, key, previewState }) => {
     return (
       <section key={`s-${key}`} data-editor-key={key}>
         <VisibilitySensor intervalCheck={false} scrollCheck={true} partialVisibility={true}>
-          {({ isVisible }) => {
-            const state = isVisible ? editorState : previewState;
-
-            return (
-              <Editor
-                editorKey={key}
-                readOnly={!isVisible || this.state.readOnly || this.state.overtyperVisible}
-                stripPastedStyles
-                // editorState={match && search && search.length > 2 ? EditorState.set(editorState, { decorator: generateDecorator(search) }) : state}
-                editorState={state}
-                blockRendererFn={this.customBlockRenderer}
-                onChange={editorState => this.onChange(editorState, key)}
-                ref={ref => this.setDomEditorRef(key, ref)}
-                handleDrop={() => true}
-                handleDroppedFiles={() => true}
-                handlePastedFiles={() => true}
-                handlePastedText={text => this.onPaste(text, key)}
-              />
-            );
-          }}
+          {({ isVisible }) => (
+            <Editor
+              editorKey={key}
+              readOnly={!isVisible || this.state.readOnly || this.state.overtyperVisible}
+              stripPastedStyles
+              editorState={isVisible ? editorState : previewState}
+              blockRendererFn={this.customBlockRenderer}
+              onChange={editorState => this.onChange(editorState, key)}
+              ref={ref => this.setDomEditorRef(key, ref)}
+              handleDrop={() => true}
+              handleDroppedFiles={() => true}
+              handlePastedFiles={() => true}
+              handlePastedText={text => this.onPaste(text, key)}
+            />
+          )}
         </VisibilitySensor>
       </section>
     );
@@ -892,206 +1285,6 @@ class TranscriptEditor extends React.Component {
     this.setState({ exportFilesModalVisible: false });
   };
 
-  handleFindField = ({ nativeEvent }) => {
-    const { value } = nativeEvent.srcElement;
-    this.setState({ search: value, findMatches: null });
-  };
-
-  handleReplaceField = ({ nativeEvent }) => {
-    const { value } = nativeEvent.srcElement;
-    this.setState({ replace: value });
-  };
-
-  handleReplace = event => {
-    const { editors, findMatch, replace } = this.state;
-    const {
-      editor: { index: editorIndex, key },
-      index: anchorOffset,
-      key: blockKey,
-    } = findMatch;
-    const editorState = editors[editorIndex].editorState;
-
-    console.log({ editorState, replace });
-
-    const updatedContentState = Modifier.replaceText(
-      editorState.getCurrentContent(),
-      editorState.getSelection(),
-      replace
-    );
-    // const newState2 = Modifier.setBlockData(newState, editorState.getSelection(), data);
-
-    const updatedEditorState = EditorState.push(editorState, updatedContentState, 'insert-characters');
-    // this.onChange(EditorState.push(editorState, updatedEditorState, 'insert-characters'), key);
-
-    this.setState(
-      {
-        editors: [
-          ...this.state.editors.slice(0, editorIndex),
-          { editorState: updatedEditorState, key, previewState: createPreview(updatedEditorState) },
-          ...this.state.editors.slice(editorIndex + 1),
-        ],
-      },
-      () => {
-        this.saveState(editorState, updatedEditorState);
-        this.handleFind(event);
-      }
-    );
-  };
-
-  handleFind = event => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const { editors, search, searchIndex = 0 } = this.state;
-
-    const regex = new RegExp(search, 'ig');
-
-    const searchSpace = editors; // .slice(searchIndex);
-    // console.log({ editors, searchSpace });
-
-    const matches = searchSpace.reduce((acc, { key, editorState }, index) => {
-      const blocks = editorState.getCurrentContent().getBlocksAsArray();
-      const selection = editorState.getSelection();
-      const anchorKey = selection.getAnchorKey();
-      const anchorBlockIndex = blocks.findIndex(block => block.getKey() === anchorKey);
-
-      const prevBlocks =
-        anchorBlockIndex === 0 ? 0 : blocks.slice(0, anchorBlockIndex).reduce((acc, b) => acc + b.getText().length, 0);
-      const offset = selection.getEndOffset();
-
-      const matchedBlocks = blocks
-        .slice(anchorBlockIndex)
-        .map((block, index) => {
-          const prevBlocks2 = index === 0 ? 0 : blocks.slice(0, index).reduce((acc, b) => acc + b.getText().length, 0);
-
-          return {
-            key: block.key,
-            prevBlocks2,
-            matches: [...block.getText().matchAll(regex)].filter(
-              ({ index }) => index >= offset + prevBlocks - prevBlocks2
-            ),
-          };
-        })
-        .filter(({ matches }) => matches.length > 0);
-
-      // console.log({ offset, prevBlocks, matchedBlocks });
-
-      return [
-        ...acc,
-        ...matchedBlocks
-          .reduce(
-            (acc, { key, prevBlocks2, matches }) => [...acc, ...matches.map(m => ({ ...m, key, prevBlocks2 }))],
-            []
-          )
-          .map(m => ({
-            ...m,
-            editor: {
-              key,
-              index,
-              editorState,
-            },
-          })),
-      ];
-    }, []);
-
-    // console.log({ matches });
-
-    const match = matches.length > 0 ? matches[0] : null;
-
-    console.log({ match });
-
-    let nextSearchIndex = searchIndex;
-    // if (matches.length === 1) {
-    //   nextSearchIndex = searchIndex < editors.length - 1 ? searchIndex + 1 : 0;
-    // } else {
-    //   nextSearchIndex = 0;
-    // }
-
-    // if (!match && nextSearchIndex === 0) {
-    //   this.setState({
-    //     searchIndex: nextSearchIndex,
-    //     editors: this.state.editors.map(editor => {
-    //       const blocks = editor.editorState.getCurrentContent().getBlocksAsArray();
-    //       const blockKey = blocks[0].getKey();
-    //       const selectionState = SelectionState.createEmpty(blockKey);
-    //       const updatedSelection = selectionState.merge({
-    //         anchorOffset: 0,
-    //         focusOffset: 0,
-    //       });
-
-    //       const updatedEditorState = EditorState.forceSelection(editor.editorState, updatedSelection);
-    //       return {
-    //         ...editor,
-    //         editorState: updatedEditorState,
-    //       };
-    //     }),
-    //   });
-    // }
-
-    if (match) {
-      const {
-        editor: { index: editorIndex, key, editorState },
-        index: anchorOffset,
-        key: blockKey,
-      } = match;
-
-      const selectionState = SelectionState.createEmpty(blockKey);
-      const updatedSelection = selectionState.merge({
-        anchorOffset,
-        focusOffset: anchorOffset + search.length,
-      });
-
-      const updatedEditorState = EditorState.forceSelection(editorState, updatedSelection);
-      this.setState(
-        {
-          searchIndex: nextSearchIndex,
-          editors: [
-            ...this.state.editors.slice(0, editorIndex),
-            { editorState: updatedEditorState, key, previewState: createPreview(updatedEditorState) },
-            ...this.state.editors.slice(editorIndex + 1),
-          ],
-          findMatch: match,
-        },
-        () =>
-          setTimeout(() => {
-            // TODO move to onchange/getSelectionState?
-            let node = window.getSelection().anchorNode;
-            node = node && node.nodeType === 3 ? node.parentNode : node;
-            if (node) {
-              node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } else {
-              node = document.querySelector(`div[data-offset-key="${match.key}-0-0"]`);
-              node && node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 0)
-      );
-    }
-  };
-
-  closeSearch = () => {
-    // this.setState({ findReplaceVisible: false, findMatch: null, searchIndex: 0, findMatches: null});
-    this.setState({
-      findReplaceVisible: false,
-      findMatch: null,
-      searchIndex: 0,
-      editors: this.state.editors.map(editor => {
-        const blocks = editor.editorState.getCurrentContent().getBlocksAsArray();
-        const blockKey = blocks[0].getKey();
-        const selectionState = SelectionState.createEmpty(blockKey);
-        // const updatedSelection = selectionState.merge({
-        //   anchorOffset: 0,
-        //   focusOffset: 0,
-        // });
-
-        const updatedEditorState = EditorState.acceptSelection(editor.editorState, selectionState);
-        return {
-          ...editor,
-          editorState: updatedEditorState,
-        };
-      }),
-    });
-  };
-
   render() {
     const {
       message,
@@ -1105,10 +1298,6 @@ class TranscriptEditor extends React.Component {
       textWindow,
       match,
       overtyperVisible,
-      findReplaceVisible,
-      search,
-      replace,
-      findMatch,
     } = this.state;
 
     if (loading || !editors)
@@ -1131,6 +1320,7 @@ class TranscriptEditor extends React.Component {
         }}
       >
         <Prompt when={blockNavigation} message={this.handleBlockNavigation} />
+        <BackTop />
         <article>
           <div onClick={event => this.handleClick(event)}>
             <style scoped>
@@ -1141,12 +1331,57 @@ class TranscriptEditor extends React.Component {
                 ? playheadWindow.map(key => `span[data-entity-key="${key}"] { font-weight: 700; }`)
                 : null}
             </style>
-            {editors.map((editorState, index) => this.renderEditor(editorState, search, findMatch))}
+            {editors.map((editorState, index) => this.renderEditor(editorState))}
           </div>
         </article>
         <Row type="flex">
           <Col span={8}></Col>
-          <Col span={8}></Col>
+          <Col span={8}>
+            <Affix offsetBottom={16} type="flex" align="center">
+              <div>
+                <Button
+                  type="primary"
+                  icon="robot"
+                  size="large"
+                  shape="round"
+                  style={{ width: 168, margin: 4 }}
+                  onClick={() => this.setState({ overtyperVisible: true })}
+                >
+                  OverTyper
+                </Button>
+                <Drawer
+                  destroyOnClose
+                  title={match ? <CorrectionWindow correctablePlayedWords={textWindow} match={match} /> : 'OverTyper'}
+                  placement={'bottom'}
+                  closable={true}
+                  mask={false}
+                  onClose={() =>
+                    this.setState({
+                      overtyperVisible: false,
+                      match: null,
+                      overtype: '',
+                    })
+                  }
+                  visible={this.state.overtyperVisible}
+                  height={'128'}
+                  afterVisibleChange={visible => {
+                    if (visible) this.overtyperRef.focus();
+                  }}
+                >
+                  <div style={{ marginBottom: 16 }}>
+                    <Input
+                      ref={ref => (this.overtyperRef = ref)}
+                      value={this.state.overtype}
+                      addonAfter={<Icon type="audio" />}
+                      placeholder="Type or speak your correction and press return. (The audio will pause automatically)"
+                      onChange={this.handleOvertyperInput}
+                      onPressEnter={this.applyOvertyper}
+                    />
+                  </div>
+                </Drawer>
+              </div>
+            </Affix>
+          </Col>
 
           <Col span={8}>
             <Affix className="controls-holder" offsetBottom={16} type="flex" align="right">
@@ -1182,33 +1417,20 @@ class TranscriptEditor extends React.Component {
           placement={'bottom'}
           closable={true}
           mask={false}
-          onClose={this.closeSearch}
-          visible={findReplaceVisible}
+          onClose={() => this.setState({ findReplaceVisible: false })}
+          visible={this.state.findReplaceVisible}
           height={'128'}
         >
-          <Form layout="inline" onSubmit={this.handleFind} type="flex" align="center">
+          <Form layout="inline" onSubmit={this.handleSubmit} type="flex" align="center">
             <Form.Item>
-              <Input
-                value={search}
-                prefix={<Icon type="search" style={{ color: 'rgba(0,0,0,.25)' }} />}
-                placeholder="Find"
-                onChange={this.handleFindField}
-              />
+              <Input prefix={<Icon type="search" style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="Find" />
             </Form.Item>
             <Form.Item>
-              <Input
-                value={replace}
-                prefix={<Icon type="retweet" style={{ color: 'rgba(0,0,0,.25)' }} />}
-                placeholder="Replace"
-                onChange={this.handleReplaceField}
-              />
+              <Input prefix={<Icon type="retweet" style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="Replace" />
             </Form.Item>
             <Form.Item>
               <Button type="primary" htmlType="submit">
-                Find
-              </Button>{' '}
-              <Button type="primary" disabled={!findMatch} onClick={this.handleReplace}>
-                Replace
+                Go
               </Button>
             </Form.Item>
           </Form>
@@ -1229,10 +1451,6 @@ class TranscriptEditor extends React.Component {
             <Radio style={radioStyle} value={1}>
               {' '}
               Word Document
-            </Radio>
-            <Radio style={radioStyle} value={1.5}>
-              {' '}
-              Word Document (without timecodes)
             </Radio>
             <Radio style={radioStyle} value={2} disabled>
               {' '}
@@ -1271,42 +1489,6 @@ const decorator = new CompositeDecorator([
     },
   },
 ]);
-
-const findWithRegex = (regex, contentBlock, callback) => {
-  const text = contentBlock.getText();
-  let matchArr, start, end;
-  while ((matchArr = regex.exec(text)) !== null) {
-    start = matchArr.index;
-    end = start + matchArr[0].length;
-    callback(start, end);
-  }
-};
-
-const generateDecorator = (highlightTerm = '') => {
-  const regex = new RegExp(highlightTerm, 'gi');
-
-  return new CompositeDecorator([
-    {
-      strategy: (contentBlock, callback) => {
-        if (highlightTerm !== '') {
-          findWithRegex(regex, contentBlock, callback);
-        }
-      },
-      component: ({ children }) => <span className="searchHit">{children}</span>,
-    },
-    {
-      strategy: getEntityStrategy('MUTABLE'),
-      component: ({ entityKey, contentState, children }) => {
-        const data = entityKey ? contentState.getEntity(entityKey).getData() : {};
-        return (
-          <span data-start={data.start} data-end={data.end} data-entity-key={data.key} className="Token">
-            {children}
-          </span>
-        );
-      },
-    },
-  ]);
-};
 
 const createPreview = editorState =>
   EditorState.set(
@@ -1367,5 +1549,71 @@ const createRaw = (blocks, contentState) =>
       inlineStyleRanges: [],
     };
   });
+
+const SPAN_TYPES = {
+  MATCH_START: 'match_start',
+  MATCH_END: 'match_end',
+  REPLACED: 'replaced',
+  REPLACEMENT: 'replacement',
+};
+
+const CorrectionWindow = ({ correctablePlayedWords, match }) => {
+  if (match) {
+    const words = correctablePlayedWords.map(word => word.text);
+
+    const parts = [];
+
+    if (match) {
+      parts.push(words.slice(0, match.start.index).join(' '));
+      parts.push(
+        <span className={SPAN_TYPES.MATCH_START} key="match_start">
+          {words.slice(match.start.index, match.start.index + match.start.length).join(' ')}
+        </span>
+      );
+
+      if (match.replacement) {
+        if (match.end) {
+          parts.push(
+            <span className={SPAN_TYPES.REPLACED} key="replaced">
+              {words.slice(match.start.index + match.start.length, match.end.index).join(' ')}
+            </span>
+          );
+          parts.push(
+            <span className={SPAN_TYPES.REPLACEMENT} key="replacement">
+              {match.replacement}
+            </span>
+          );
+          parts.push(
+            <span className={SPAN_TYPES.MATCH_END} key="match_end">
+              {words.slice(match.end.index, match.end.index + match.end.length).join(' ')}
+            </span>
+          );
+          parts.push(words.slice(match.end.index + match.end.length).join(' '));
+        } else {
+          parts.push(
+            <span className={SPAN_TYPES.REPLACEMENT} key="replacement">
+              {match.replacement}
+            </span>
+          );
+          parts.push(words.slice(match.start.index + match.start.length).join(' '));
+        }
+      } else {
+        parts.push(words.slice(match.start.index + match.start.length, words.length).join(' '));
+      }
+    } else {
+      parts.push(words.join(' '));
+    }
+
+    return (
+      <span className="transcriptDisplay--played_correctable">{parts.reduce((prev, curr) => [prev, ' ', curr])}</span>
+    );
+  }
+
+  return (
+    <span className="transcriptDisplay--played_correctable">
+      {correctablePlayedWords.map(word => word.text).join(' ')}
+    </span>
+  );
+};
 
 export default TranscriptEditor;

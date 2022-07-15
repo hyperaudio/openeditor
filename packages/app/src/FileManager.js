@@ -28,6 +28,8 @@ import {
   Layout,
   Input,
   Radio,
+  Upload,
+  Progress,
 } from 'antd';
 
 import {
@@ -81,13 +83,14 @@ class FileManager extends React.Component {
       fileActionActive: false,
       selectedRows: [],
       exportValue: 1,
+      progress: 0,
     };
 
     this.uppy = Uppy({
       id: 'uppy1',
       autoProceed: true,
       // maxNumberOfFiles: 1,
-      allowMultipleUploads: false,
+      allowMultipleUploads: true,
       debug: true,
       restrictions: {
         allowedFileTypes: ['audio/*', 'video/*', '.m4a', '.mp4', '.mp3', '.wav'],
@@ -553,11 +556,19 @@ class FileManager extends React.Component {
         } else if (message) {
           return (
             <Tooltip placement="topLeft" title={message} arrowPointAtCenter>
-              <Tag color={tagColor}>{status}</Tag>
+              <Tag color={tagColor}>
+                {status.endsWith('ing') ? <Icon type="loading" /> : null}
+                {status}
+              </Tag>
             </Tooltip>
           );
         } else {
-          return <Tag color={tagColor}>{status}</Tag>;
+          return (
+            <Tag color={tagColor}>
+              {status.endsWith('ing') ? <Icon type="loading" /> : null}
+              {status}
+            </Tag>
+          );
         }
       },
       filters: [
@@ -693,10 +704,6 @@ class FileManager extends React.Component {
               {' '}
               Word Document
             </Radio>
-            <Radio style={radioStyle} value={1.5}>
-              {' '}
-              Word Document (without timecodes)
-            </Radio>
             <Radio style={radioStyle} value={2}>
               {' '}
               JSON Format (contains timings and other meta data)
@@ -735,15 +742,15 @@ class FileManager extends React.Component {
           Note : this action cannot be undone.
         </Modal>
 
-        <DashboardModal
+        {/* <DashboardModal
           uppy={this.uppy}
           // closeModalOnClickOutside
           open={this.state.uploadModalVisible}
           onRequestClose={this.cancelUpload}
           plugins={['Url']}
-        />
+        /> */}
 
-        {/* <Modal
+        <Modal
           destroyOnClose
           maskClosable={false}
           footer={null}
@@ -753,16 +760,77 @@ class FileManager extends React.Component {
           confirmLoading={this.state.uploadModalLoading}
           onCancel={this.cancelUpload}
         >
-          <Dashboard uppy={this.uppy} note="Media files only, ideally m4a or mp4" />
-          {this.state.uploadAlert ? (
-            <Alert
-              message={this.state.uploadAlert}
-              type="warning"
-              closable
-              onClose={() => this.setState({ uploadAlert: null })}
-            />
-          ) : null}
-        </Modal> */}
+          <div style={{ width: '100%', marginBottom: 20 }}>
+            <Progress percent={this.state.progress} />
+          </div>
+          <Upload
+            showUploadList={false}
+            customRequest={({ file, onError, onSuccess }) => {
+              this.setState({ progress: 0, uploadAlert: null });
+              console.log(file);
+
+              const id = generateId();
+              // const key = `media/${id}/input/${sanitize(file.name)
+              //   .replace(/ /g, '_')
+              //   .replace(/&/g, '_')
+              //   .replace(/\$/g, '_')
+              //   .replace(/_+/g, '_')}`;
+
+              const key = `media/${id}/input/upload.${file.name.split('.').pop()}`;
+
+              Storage.put(key, file, {
+                progressCallback: ({ loaded, total }) => this.setState({ progress: (100 * loaded) / total }),
+              })
+                .then(async ({ key }) => {
+                  this.setState({ uploadAlert: null });
+
+                  console.log({ key });
+
+                  const {
+                    data: { PK },
+                  } = await newUpload(id, file.name, this.props.parent, [this.props.storageBucket, key]);
+                  this.props.update();
+
+                  triggerTranscription(
+                    PK,
+                    this.props.storageBucket,
+                    `public/${key}`,
+                    file.extension
+                    // response.uploadURL ??
+                  );
+                })
+                .catch(err => {
+                  console.log(err);
+                  this.setState({ uploadAlert: err });
+                });
+
+              // const reader = new FileReader();
+              // reader.addEventListener(
+              //   'load',
+              //   async () => {
+              //     const blob = await (await fetch(reader.result)).blob();
+
+              //     axios
+              //       .post(API_UPLOAD(Date.now()), blob, {})
+              //       .then(({ data }) => {
+              //         segmentSetImage(data.url);
+              //         onSuccess(data);
+              //       })
+              //       .catch(error => {
+              //         console.error(error);
+              //         onError(error);
+              //       });
+              //   },
+              //   false
+              // );
+              // reader.readAsDataURL(file);
+            }}
+          >
+            <Button type="primary" size="small">
+              <Icon type="upload" /> Upload
+            </Button>
+          </Upload>
+        </Modal>
 
         <Affix className="controls-holder" offsetBottom={1} type="flex" align="right">
           <div>
@@ -784,7 +852,6 @@ class FileManager extends React.Component {
                 shape="circle"
                 icon="link"
                 size="large"
-                disabled={true}
                 onClick={() => this.setState({ urlModalVisible: true })}
               />
             </Tooltip>
