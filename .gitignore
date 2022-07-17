@@ -31,3 +31,28 @@ yarn-error.log*
 
 cypress/e2e/1-getting-started/**
 cypress/e2e/2-advanced-examples/**
+
+
+# https://docs.amplify.aws/cli/teams/shared/#sharing-projects-outside-the-team
+amplify/team-provider-info.json
+
+#amplify-do-not-edit-begin
+amplify/\#current-cloud-backend
+amplify/.config/local-*
+amplify/logs
+amplify/mock-data
+amplify/backend/amplify-meta.json
+amplify/backend/.temp
+build/
+dist/
+node_modules/
+aws-exports.js
+awsconfiguration.json
+amplifyconfiguration.json
+amplifyconfiguration.dart
+amplify-build-config.json
+amplify-gradle-config.json
+amplifytools.xcconfig
+.secret-*
+**.sample
+#amplify-do-not-edit-end

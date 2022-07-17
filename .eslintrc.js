@@ -16,7 +16,7 @@ module.exports = {
     'plugin:jsx-a11y/recommended',
     'airbnb',
     'airbnb/hooks',
-    'plugin:@typescript-eslint/all',
+    'plugin:@typescript-eslint/recommended',
     'plugin:import/recommended',
     'prettier',
   ],
