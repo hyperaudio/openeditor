@@ -123,5 +123,21 @@
         }
       ]
     }
+  },
+  "custom": {
+    "MediaConvertRole": {
+      "service": "customCDK",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [
+        {
+          "category": "storage",
+          "resourceName": "s3storage",
+          "attributes": [
+            "BucketName",
+            "Region"
+          ]
+        }
+      ]
+    }
   }
 }
