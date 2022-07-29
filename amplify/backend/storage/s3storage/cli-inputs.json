@@ -1,0 +1,22 @@
+{
+  "resourceName": "s3storage",
+  "policyUUID": "dc519b74",
+  "bucketName": "openeditor-storage-ef19ef24",
+  "storageAccess": "auth",
+  "guestAccess": [],
+  "authAccess": [
+    "READ"
+  ],
+  "triggerFunction": "S3Triggerf5e6b756",
+  "groupAccess": {
+    "Admins": [
+      "CREATE_AND_UPDATE",
+      "READ",
+      "DELETE"
+    ],
+    "Editors": [
+      "CREATE_AND_UPDATE",
+      "READ"
+    ]
+  }
+}

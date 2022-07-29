@@ -20,6 +20,12 @@ export type AmplifyDependentResourcesAttributes = {
             "Arn": "string",
             "Region": "string",
             "LambdaExecutionRole": "string"
+        },
+        "S3Triggerf5e6b756": {
+            "Name": "string",
+            "Arn": "string",
+            "Region": "string",
+            "LambdaExecutionRole": "string"
         }
     },
     "api": {
@@ -27,6 +33,12 @@ export type AmplifyDependentResourcesAttributes = {
             "RootUrl": "string",
             "ApiName": "string",
             "ApiId": "string"
+        }
+    },
+    "storage": {
+        "s3storage": {
+            "BucketName": "string",
+            "Region": "string"
         }
     }
 }

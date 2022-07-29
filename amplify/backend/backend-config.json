@@ -55,6 +55,11 @@
           ]
         }
       ]
+    },
+    "S3Triggerf5e6b756": {
+      "service": "Lambda",
+      "providerPlugin": "awscloudformation",
+      "build": true
     }
   },
   "api": {
@@ -76,6 +81,44 @@
           "attributes": [
             "Arn",
             "Name"
+          ]
+        }
+      ]
+    }
+  },
+  "storage": {
+    "s3storage": {
+      "service": "S3",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [
+        {
+          "category": "function",
+          "resourceName": "S3Triggerf5e6b756",
+          "attributes": [
+            "Name",
+            "Arn",
+            "LambdaExecutionRole"
+          ]
+        },
+        {
+          "category": "auth",
+          "resourceName": "OpenEditor",
+          "attributes": [
+            "UserPoolId"
+          ]
+        },
+        {
+          "category": "auth",
+          "resourceName": "userPoolGroups",
+          "attributes": [
+            "AdminsGroupRole"
+          ]
+        },
+        {
+          "category": "auth",
+          "resourceName": "userPoolGroups",
+          "attributes": [
+            "EditorsGroupRole"
           ]
         }
       ]
