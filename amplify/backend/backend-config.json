@@ -139,5 +139,17 @@
         }
       ]
     }
+  },
+  "predictions": {
+    "transcription": {
+      "providerPlugin": "awscloudformation",
+      "service": "Transcribe",
+      "convertType": "transcription"
+    },
+    "translation": {
+      "providerPlugin": "awscloudformation",
+      "service": "Translate",
+      "convertType": "translateText"
+    }
   }
 }
