@@ -1,5 +1,7 @@
-import { render, screen } from '@testing-library/react';
+/* eslint-disable import/no-extraneous-dependencies */
+import 'jsdom-worker';
 import React from 'react';
+import { render, screen } from '@testing-library/react';
 
 import App from './App';
 

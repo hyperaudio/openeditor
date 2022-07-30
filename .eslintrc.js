@@ -74,10 +74,10 @@ module.exports = {
       {
         groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'object', 'type'],
         'newlines-between': 'always',
-        alphabetize: {
-          order: 'asc',
-          caseInsensitive: true,
-        },
+        // alphabetize: {
+        //   order: 'asc',
+        //   caseInsensitive: true,
+        // },
       },
     ],
     '@typescript-eslint/naming-convention': [

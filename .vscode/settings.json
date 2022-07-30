@@ -13,5 +13,14 @@
     "editor.formatOnSave": false,
     "editor.formatOnPaste": false
   },
-  "cSpell.words": ["amplifybutton", "awsmobile", "browserslist", "openeditor", "openeditorstorage", "TTFB", "webfonts"]
+  "cSpell.words": [
+    "amplifybutton",
+    "antd",
+    "awsmobile",
+    "browserslist",
+    "openeditor",
+    "openeditorstorage",
+    "TTFB",
+    "webfonts"
+  ]
 }
