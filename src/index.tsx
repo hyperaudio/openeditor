@@ -12,6 +12,8 @@ import reportWebVitals from './reportWebVitals';
 
 import './index.css';
 
+window.Amplify = Amplify;
+
 Amplify.configure(awsExports);
 // ConfigProvider.config({});
 
