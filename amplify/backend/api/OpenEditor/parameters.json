@@ -1,0 +1,12 @@
+{
+  "AppSyncApiName": "OpenEditor",
+  "DynamoDBBillingMode": "PAY_PER_REQUEST",
+  "DynamoDBEnableServerSideEncryption": false,
+  "AuthCognitoUserPoolId": {
+    "Fn::GetAtt": [
+      "authOpenEditor",
+      "Outputs.UserPoolId"
+    ]
+  },
+  "AuthModeLastUpdated": "2022-07-30T11:38:06.468Z"
+}

@@ -190,11 +190,15 @@ async function listGroupsForUser(username, Limit, NextToken) {
   try {
     const result = await cognitoIdentityServiceProvider.adminListGroupsForUser(params).promise();
     /**
-     * We are filtering out the results that seem to be innapropriate for client applications
-     * to prevent any informaiton disclosure. Customers can modify if they have the need.
+     * We are filtering out the results that seem to be inappropriate for client applications
+     * to prevent any information disclosure. Customers can modify if they have the need.
      */
     result.Groups.forEach(val => {
-      delete val.UserPoolId, delete val.LastModifiedDate, delete val.CreationDate, delete val.Precedence, delete val.RoleArn;
+      delete val.UserPoolId,
+        delete val.LastModifiedDate,
+        delete val.CreationDate,
+        delete val.Precedence,
+        delete val.RoleArn;
     });
 
     return result;

@@ -10,6 +10,14 @@
     },
     "s3Key": {
       "Type": "String"
+    },
+    "apiOpenEditorGraphQLAPIIdOutput": {
+      "Type": "String",
+      "Default": "apiOpenEditorGraphQLAPIIdOutput"
+    },
+    "apiOpenEditorGraphQLAPIEndpointOutput": {
+      "Type": "String",
+      "Default": "apiOpenEditorGraphQLAPIEndpointOutput"
     }
   },
   "Conditions": {
@@ -53,6 +61,15 @@
           "Variables": {
             "ENV": {
               "Ref": "env"
+            },
+            "REGION": {
+              "Ref": "AWS::Region"
+            },
+            "API_OPENEDITOR_GRAPHQLAPIIDOUTPUT": {
+              "Ref": "apiOpenEditorGraphQLAPIIdOutput"
+            },
+            "API_OPENEDITOR_GRAPHQLAPIENDPOINTOUTPUT": {
+              "Ref": "apiOpenEditorGraphQLAPIEndpointOutput"
             }
           }
         },
@@ -62,8 +79,9 @@
             "Arn"
           ]
         },
-        "Runtime": "nodejs14.x",
-        "Timeout": 25,
+        "Runtime": "nodejs16.x",
+        "MemorySize": "3008",
+        "Timeout": 60,
         "Code": {
           "S3Bucket": {
             "Ref": "deploymentBucketName"
@@ -155,6 +173,149 @@
           ]
         }
       }
+    },
+    "AmplifyResourcesPolicy": {
+      "DependsOn": [
+        "LambdaExecutionRole"
+      ],
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "amplify-lambda-execution-policy",
+        "Roles": [
+          {
+            "Ref": "LambdaExecutionRole"
+          }
+        ],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "appsync:GraphQL"
+              ],
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:appsync:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":apis/",
+                      {
+                        "Ref": "apiOpenEditorGraphQLAPIIdOutput"
+                      },
+                      "/types/Query/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:appsync:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":apis/",
+                      {
+                        "Ref": "apiOpenEditorGraphQLAPIIdOutput"
+                      },
+                      "/types/Mutation/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:appsync:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":apis/",
+                      {
+                        "Ref": "apiOpenEditorGraphQLAPIIdOutput"
+                      },
+                      "/types/Subscription/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "CustomLambdaExecutionPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "custom-lambda-execution-policy",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Action": [
+                "transcribe:*"
+              ],
+              "Resource": [
+                "*"
+              ],
+              "Effect": "Allow"
+            },
+            {
+              "Action": [
+                "mediaconvert:*"
+              ],
+              "Resource": [
+                "*"
+              ],
+              "Effect": "Allow"
+            },
+            {
+              "Action": [
+                "iam:PassRole"
+              ],
+              "Resource": [
+                {
+                  "Fn::Sub": [
+                    "arn:aws:iam::${account}:role/MediaConvertRole-OpenEditor-${env}",
+                    {
+                      "account": {
+                        "Ref": "AWS::AccountId"
+                      },
+                      "env": {
+                        "Ref": "env"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "Effect": "Allow"
+            }
+          ]
+        },
+        "Roles": [
+          {
+            "Ref": "LambdaExecutionRole"
+          }
+        ]
+      },
+      "DependsOn": "LambdaExecutionRole"
     }
   },
   "Outputs": {
