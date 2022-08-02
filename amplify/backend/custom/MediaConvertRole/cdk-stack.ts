@@ -47,6 +47,14 @@ export class cdkStack extends cdk.Stack {
       }),
     );
 
+    role.assumeRolePolicy?.addStatements(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole'],
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ServicePrincipal('mediaconvert.amazonaws.com')],
+      }),
+    );
+
     role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonAPIGatewayInvokeFullAccess'));
     role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AWSElementalMediaConvertFullAccess'));
   }

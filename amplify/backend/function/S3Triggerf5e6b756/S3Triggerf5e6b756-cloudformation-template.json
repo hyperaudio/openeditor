@@ -70,6 +70,19 @@
             },
             "API_OPENEDITOR_GRAPHQLAPIENDPOINTOUTPUT": {
               "Ref": "apiOpenEditorGraphQLAPIEndpointOutput"
+            },
+            "MEDIACONVERT_ROLE": {
+              "Fn::Sub": [
+                "arn:aws:iam::${account}:role/MediaConvertRole-OpenEditor-${env}",
+                {
+                  "account": {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "env": {
+                    "Ref": "env"
+                  }
+                }
+              ]
             }
           }
         },
