@@ -6,7 +6,7 @@ import { useParams } from 'react-router-dom';
 import { DataStore, Storage } from 'aws-amplify';
 import { v4 as uuidv4 } from 'uuid';
 import { Layout, Col, Row, PageHeader, Card, Steps, Button, Upload, Select, message } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { UploadOutlined, LoadingOutlined } from '@ant-design/icons';
 import { RcFile } from 'antd/lib/upload';
 import mime from 'mime/lite';
 
@@ -331,6 +331,11 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
                     ) : type === 'transcode' ? (
                       <Step
                         key={type}
+                        icon={
+                          (steps[index] as any).status === 'process' ? (
+                            <LoadingOutlined style={{ color: '#1890ff' }} />
+                          ) : null
+                        }
                         // eslint-disable-next-line dot-notation
                         title={
                           title[status ?? 'default'] ??
@@ -357,6 +362,11 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
                     ) : type === 'transcribe' ? (
                       <Step
                         key={type}
+                        icon={
+                          (steps[index] as any).status === 'process' ? (
+                            <LoadingOutlined style={{ color: '#1890ff' }} />
+                          ) : null
+                        }
                         // eslint-disable-next-line dot-notation
                         title={
                           title[status ?? 'default'] ??
