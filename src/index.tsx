@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { Provider } from 'jotai';
 import { ConfigProvider } from 'antd';
 import enGB from 'antd/es/locale/en_GB';
 import { Amplify } from 'aws-amplify';
@@ -22,13 +23,15 @@ const rootElement: HTMLElement | null = document.getElementById('root');
 if (rootElement)
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
-      <ConfigProvider locale={enGB}>
-        <Authenticator.Provider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </Authenticator.Provider>
-      </ConfigProvider>
+      <Provider>
+        <ConfigProvider locale={enGB}>
+          <Authenticator.Provider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </Authenticator.Provider>
+        </ConfigProvider>
+      </Provider>
     </React.StrictMode>,
   );
 

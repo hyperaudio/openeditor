@@ -1,9 +1,14 @@
+/* eslint-disable react/jsx-curly-brace-presence */
 /* eslint-disable no-unused-expressions */
 /* eslint-disable react/button-has-type */
 import React, { useState, useEffect, useMemo } from 'react';
 import { Switch, Route } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
 import { Auth, DataStore, Hub } from 'aws-amplify';
 import { ThemeProvider, defaultDarkModeOverride, Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
+import { useAtom } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
+import { useKonami } from 'react-konami-code';
 
 import { User, Transcript } from './models';
 import Home from './pages/Home';
@@ -15,6 +20,8 @@ export const theme = {
   name: 'open-editor',
   overrides: [defaultDarkModeOverride],
 };
+
+const darkModeAtom = atomWithStorage('darkMode', false);
 
 const getUser = async (username: string): Promise<User | undefined> =>
   (await DataStore.query(User, user => user.cognitoUsername('eq', username), { limit: 1 })).pop();
@@ -29,6 +36,10 @@ const App = (): JSX.Element => {
   const [ready, setReady] = useState(false);
   const [users, setUsers] = useState<User[] | undefined>(undefined);
   const [transcripts, setTranscripts] = useState<Transcript[] | undefined>(undefined);
+
+  const [darkMode] = useAtom(darkModeAtom);
+  const [debug, setDebug] = useState(true);
+  useKonami(() => setDebug(!debug));
 
   useEffect(() => {
     getUsers(setUsers);
@@ -92,32 +103,47 @@ const App = (): JSX.Element => {
       })();
   }, [cognitoUser, ready]);
 
-  return authStatus === 'authenticated' ? (
-    <Switch>
-      <Route path="/" exact>
-        <Home {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
-      </Route>
-      <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
-        <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
-      </Route>
-      <Route path="*">
-        <NotFound />
-      </Route>
-    </Switch>
-  ) : (
-    <div
-      style={{
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-      <ThemeProvider theme={theme} colorMode={window.darkMode ? 'dark' : 'light'}>
-        <Authenticator hideSignUp />
-      </ThemeProvider>
-    </div>
+  return (
+    <>
+      {darkMode && (
+        <Helmet>
+          <style>{'@import "/style/antd.dark.css";'}</style>
+        </Helmet>
+      )}
+      {authStatus === 'authenticated' ? (
+        <Switch>
+          <Route path="/" exact>
+            <Home
+              {...{ user, groups, transcripts, darkMode, debug }}
+              userMenu={<UserMenu {...{ user, groups, signOut, darkModeAtom, debug }} />}
+            />
+          </Route>
+          <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
+            <TranscriptPage
+              {...{ user, groups, transcripts, darkMode, debug }}
+              userMenu={<UserMenu {...{ user, groups, signOut, darkModeAtom, debug }} />}
+            />
+          </Route>
+          <Route path="*">
+            <NotFound />
+          </Route>
+        </Switch>
+      ) : (
+        <div
+          style={{
+            height: '100vh',
+            display: 'flex',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+          <ThemeProvider theme={theme} colorMode={darkMode ? 'dark' : 'light'}>
+            <Authenticator hideSignUp />
+          </ThemeProvider>
+        </div>
+      )}
+    </>
   );
 };
 
