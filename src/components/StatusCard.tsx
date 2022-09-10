@@ -299,7 +299,9 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
                 (steps[index] as any).status === 'process' ? <LoadingOutlined style={{ color: '#1890ff' }} /> : null
               }
               title={getTitle({ type, status, title })}
-              description={audioKey ? <Audio key={audioKey} /> : getDescription({ type, status, description })}
+              description={
+                audioKey ? <Audio key={audioKey} audioKey={audioKey} /> : getDescription({ type, status, description })
+              }
             />
           ) : type === 'transcribe' ? (
             <Step
@@ -362,19 +364,19 @@ const getDescription = ({
   (LABELS[type] as any)['description'][status ?? 'default'] ??
   LABELS[type]['description'][null ?? 'default'];
 
-const Audio = ({ key }: { key: string }): JSX.Element => {
+const Audio = ({ audioKey }: { audioKey: string }): JSX.Element => {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    key &&
+    audioKey &&
       (async () =>
         setSrc(
-          await Storage.get(key.replace('public/', ''), {
+          await Storage.get(audioKey.replace('public/', ''), {
             download: false,
             expires: 36000,
           }),
         ))();
-  }, [key]);
+  }, [audioKey]);
 
   // TODO 404 audio src?
   return (
