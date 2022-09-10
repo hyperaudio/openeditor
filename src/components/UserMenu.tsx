@@ -24,7 +24,10 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
     [signOut, darkMode],
   );
 
-  const handleChange = useCallback((darkMode: boolean) => setDarkMode(darkMode), []);
+  const handleChange = useCallback((darkMode: boolean) => {
+    setDarkMode(darkMode);
+    window.darkMode = darkMode;
+  }, []);
 
   return (
     <>

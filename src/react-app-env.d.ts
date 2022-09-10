@@ -2,4 +2,5 @@
 
 interface Window {
   Amplify: Amplify;
+  darkMode: boolean;
 }

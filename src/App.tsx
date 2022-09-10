@@ -1,15 +1,20 @@
 /* eslint-disable no-unused-expressions */
 /* eslint-disable react/button-has-type */
 import React, { useState, useEffect, useMemo } from 'react';
-import { Switch, Route, Link } from 'react-router-dom';
-import { Auth, DataStore, Predictions } from 'aws-amplify';
-import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
+import { Switch, Route } from 'react-router-dom';
+import { Auth, DataStore, Hub } from 'aws-amplify';
+import { ThemeProvider, defaultDarkModeOverride, Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 
 import { User, Transcript } from './models';
-import Home from './Home';
-import TranscriptPage from './Transcript';
-import NotFound from './NotFound';
+import Home from './pages/Home';
+import TranscriptPage from './pages/Transcript';
+import NotFound from './pages/NotFound';
 import UserMenu from './components/UserMenu';
+
+export const theme = {
+  name: 'open-editor',
+  overrides: [defaultDarkModeOverride],
+};
 
 const getUser = async (username: string): Promise<User | undefined> =>
   (await DataStore.query(User, user => user.cognitoUsername('eq', username), { limit: 1 })).pop();
@@ -21,6 +26,7 @@ const getTranscripts = async (setTranscripts: (transcripts: Transcript[]) => voi
 const App = (): JSX.Element => {
   const { authStatus, user: cognitoUser, signOut } = useAuthenticator(context => [context.user]);
 
+  const [ready, setReady] = useState(false);
   const [users, setUsers] = useState<User[] | undefined>(undefined);
   const [transcripts, setTranscripts] = useState<Transcript[] | undefined>(undefined);
 
@@ -53,43 +59,38 @@ const App = (): JSX.Element => {
   );
 
   useEffect(() => {
-    if (!cognitoUser || !users) return;
+    Hub.listen('datastore', ({ payload: { event, data } }) => {
+      if (event === 'ready') setReady(true);
+    });
+
+    // return () => Hub.remove('datastore', listener);
+  }, []);
+
+  useEffect(() => {
+    if (!cognitoUser || !ready) return;
 
     const { username, attributes } = cognitoUser;
     const { email } = attributes ?? { email: '' };
 
-    console.log({ username, email });
+    username &&
+      (async () => {
+        const user = await getUser(username);
 
-    // username &&
-    //   (async () => {
-    //     const user = await getUser(username);
-    //     console.log({ user });
+        if (!user) {
+          const { identityId } = await Auth.currentCredentials();
 
-    //     if (!user) {
-    //       const { identityId } = await Auth.currentCredentials();
-
-    //       await DataStore.save(
-    //         new User({
-    //           identityId,
-    //           cognitoUsername: username,
-    //           email,
-    //           name: email.split('@')[0],
-    //           metadata: '{}',
-    //         }),
-    //       );
-    //     }
-
-    //     // await DataStore.save(
-    //     //   User.copyOf(user, updated => {
-    //     //     // eslint-disable-next-line no-param-reassign
-    //     //     updated.metadata = JSON.stringify({
-    //     //       ...((user.metadata as unknown as Record<string, unknown>) ?? {}),
-    //     //       lastLogin: new Date(),
-    //     //     });
-    //     //   }),
-    //     // );
-    //   })();
-  }, [cognitoUser, users]);
+          await DataStore.save(
+            new User({
+              identityId,
+              cognitoUsername: username,
+              email,
+              name: email.split('@')[0],
+              metadata: '{}',
+            }),
+          );
+        }
+      })();
+  }, [cognitoUser, ready]);
 
   return authStatus === 'authenticated' ? (
     <Switch>
@@ -113,7 +114,9 @@ const App = (): JSX.Element => {
         justifyContent: 'center',
         alignItems: 'center',
       }}>
-      <Authenticator hideSignUp />
+      <ThemeProvider theme={theme} colorMode={window.darkMode ? 'dark' : 'light'}>
+        <Authenticator hideSignUp />
+      </ThemeProvider>
     </div>
   );
 };
