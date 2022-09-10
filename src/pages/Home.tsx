@@ -3,7 +3,7 @@ import { Link, useHistory } from 'react-router-dom';
 import { DataStore } from 'aws-amplify';
 import { Layout, PageHeader, Button } from 'antd';
 
-import { User, Transcript } from './models';
+import { User, Transcript } from '../models';
 
 const { Header, Content } = Layout;
 
