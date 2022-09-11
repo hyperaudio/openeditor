@@ -101,7 +101,7 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
           new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime(),
       },
     ],
-    [],
+    [openStatusDrawer],
   );
 
   return (
