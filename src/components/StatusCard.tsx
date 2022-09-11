@@ -5,14 +5,25 @@
 /* eslint-disable no-nested-ternary */
 import React, { useState, useEffect, useMemo, useCallback, useRef, Ref } from 'react';
 import { DataStore, Storage } from 'aws-amplify';
+import { useAtom } from 'jotai';
 import { v4 as uuidv4 } from 'uuid';
-import { Card, Steps, Button, Upload, Select, message } from 'antd';
-import { UploadOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Card, Tag, Badge, Tooltip, Steps, Button, Upload, Select, message } from 'antd';
+import {
+  UploadOutlined,
+  LoadingOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CloseCircleOutlined,
+  ExclamationCircleOutlined,
+  MinusCircleOutlined,
+  SyncOutlined,
+} from '@ant-design/icons';
 import { RcFile } from 'antd/lib/upload';
 import mime from 'mime/lite';
 
 import { User, Transcript } from '../models';
 import languages from '../data/aws-transcribe-languages.json';
+import { debugModeAtom } from '../atoms';
 
 import type { UploadRequestOption, UploadProgressEvent, UploadRequestError } from 'rc-upload/lib/interface';
 import type { UploadFile, UploadChangeParam } from 'antd/lib/upload/interface';
@@ -105,7 +116,6 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
 
   useEffect(() => {
     if (!transcript) return;
-    console.log({ transcript });
 
     const { step, steps } = (transcript.status as unknown as Record<string, any>) ?? { step: 0, steps: [] };
 
@@ -266,7 +276,12 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
   }, [steps]);
 
   return (
-    <Card title="Status">
+    <Card
+      title={
+        <>
+          Status: <Status {...{ steps, step, status }} />
+        </>
+      }>
       <Steps current={step} direction="vertical" percent={progress} status={status}>
         {steps.map(({ type, status, title = {}, description }, index) =>
           type === 'upload' ? (
@@ -386,8 +401,79 @@ const Audio = ({ audioKey }: { audioKey: string }): JSX.Element => {
   );
 };
 
-export function foo(bar: string): string {
-  return bar;
-}
+const Status = ({
+  steps,
+  step,
+  status,
+}: {
+  steps: never[];
+  step: number;
+  status: 'wait' | 'process' | 'finish' | 'error' | undefined;
+}): JSX.Element => {
+  const [debugMode] = useAtom(debugModeAtom);
+  const color = status2color[status ?? 'default'];
+  const icon = status2icon[status ?? 'default'];
+  const currentStep = steps[step] as any;
+  const label = currentStep
+    ? getTitle({ title: currentStep?.title ?? {}, status: status as string, type: currentStep.type })
+    : '?';
+  const message = currentStep
+    ? getDescription({ description: currentStep?.description ?? {}, status: status as string, type: currentStep.type })
+    : '?';
+
+  return (
+    <Tooltip title={message}>
+      <Tag {...{ icon, color }}>
+        {label} {debugMode ? `(${status})` : null}
+      </Tag>
+    </Tooltip>
+  );
+};
+
+export const StatusTag = ({ transcript }: { transcript: Transcript }): JSX.Element => {
+  const { step, steps = [] } = (transcript.status as unknown as Record<string, any>) ?? { step: 0, steps: [] };
+  const { status } = steps[step];
+
+  return <Status {...{ steps, step, status }} />;
+};
+
+export const StatusBadge = ({ transcript }: { transcript: Transcript }): JSX.Element => {
+  const { step, steps = [] } = (transcript.status as unknown as Record<string, any>) ?? {
+    step: 0,
+    steps: [],
+  };
+  const currentStep = steps[step] as any;
+  const { status } = currentStep;
+
+  const color = status2color[status ?? 'default'];
+  const label = currentStep
+    ? getTitle({ title: currentStep?.title ?? {}, status: status as string, type: currentStep.type })
+    : '?';
+  const message = currentStep
+    ? getDescription({ description: currentStep?.description ?? {}, status: status as string, type: currentStep.type })
+    : '?';
+
+  return (
+    <Tooltip title={message}>
+      <Badge status={color as any} text={label} />
+    </Tooltip>
+  );
+};
+
+const status2color: { [key: string]: string } = {
+  wait: 'default',
+  process: 'processing',
+  finish: 'success',
+  error: 'error',
+  default: 'default',
+};
+
+const status2icon = {
+  wait: <ClockCircleOutlined />,
+  process: <SyncOutlined spin />,
+  finish: <CheckCircleOutlined />,
+  error: <CloseCircleOutlined />,
+  default: <MinusCircleOutlined />,
+};
 
 export default StatusCard;
