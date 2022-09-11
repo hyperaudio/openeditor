@@ -7,21 +7,21 @@ import { Helmet } from 'react-helmet';
 import { Auth, DataStore, Hub } from 'aws-amplify';
 import { ThemeProvider, defaultDarkModeOverride, Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import { useAtom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
 import { useKonami } from 'react-konami-code';
 
 import { User, Transcript } from './models';
+import { darkModeAtom, debugModeAtom } from './atoms';
+import AuthPage from './pages/Auth';
 import Home from './pages/Home';
 import TranscriptPage from './pages/Transcript';
 import NotFound from './pages/NotFound';
+import Preferences from './pages/Preferences';
 import UserMenu from './components/UserMenu';
 
 export const theme = {
   name: 'open-editor',
   overrides: [defaultDarkModeOverride],
 };
-
-const darkModeAtom = atomWithStorage('darkMode', false);
 
 const getUser = async (username: string): Promise<User | undefined> =>
   (await DataStore.query(User, user => user.cognitoUsername('eq', username), { limit: 1 })).pop();
@@ -38,8 +38,8 @@ const App = (): JSX.Element => {
   const [transcripts, setTranscripts] = useState<Transcript[] | undefined>(undefined);
 
   const [darkMode] = useAtom(darkModeAtom);
-  const [debug, setDebug] = useState(true);
-  useKonami(() => setDebug(!debug));
+  const [debugMode, setDebug] = useAtom(debugModeAtom);
+  useKonami(() => setDebug(!debugMode));
 
   useEffect(() => {
     getUsers(setUsers);
@@ -113,35 +113,20 @@ const App = (): JSX.Element => {
       {authStatus === 'authenticated' ? (
         <Switch>
           <Route path="/" exact>
-            <Home
-              {...{ user, groups, transcripts, darkMode, debug }}
-              userMenu={<UserMenu {...{ user, groups, signOut, darkModeAtom, debug }} />}
-            />
+            <Home {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
           </Route>
           <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
-            <TranscriptPage
-              {...{ user, groups, transcripts, darkMode, debug }}
-              userMenu={<UserMenu {...{ user, groups, signOut, darkModeAtom, debug }} />}
-            />
+            <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
+          </Route>
+          <Route path="/preferences">
+            <Preferences />
           </Route>
           <Route path="*">
             <NotFound />
           </Route>
         </Switch>
       ) : (
-        <div
-          style={{
-            height: '100vh',
-            display: 'flex',
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-          <ThemeProvider theme={theme} colorMode={darkMode ? 'dark' : 'light'}>
-            <Authenticator hideSignUp />
-          </ThemeProvider>
-        </div>
+        <AuthPage {...{ theme, darkMode }} />
       )}
     </>
   );

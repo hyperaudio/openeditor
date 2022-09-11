@@ -1,21 +1,20 @@
 /* eslint-disable react/jsx-curly-brace-presence */
 import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAtom, WritableAtom } from 'jotai';
+import { useAtom } from 'jotai';
 import { Avatar, Dropdown, Menu, Space, Switch } from 'antd';
 import { DownOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
 
 import { User } from '../models';
+import { darkModeAtom } from '../atoms';
 
 interface UserMenuProps {
   user: User | undefined;
   groups: string[];
   signOut: () => void;
-  darkModeAtom: WritableAtom<boolean, boolean>;
-  debug: boolean;
 }
 
-const UserMenu = ({ user, groups, signOut, darkModeAtom, debug }: UserMenuProps): JSX.Element => {
+const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
   const [darkMode, setDarkMode] = useAtom(darkModeAtom);
 
   const handleClick = useCallback(

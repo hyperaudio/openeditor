@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import ReactJson from 'react-json-view';
 import { Layout, Col, Row, PageHeader, Card } from 'antd';
 
 import { User, Transcript } from '../models';
 import StatusCard from '../components/StatusCard';
+import DataCard from '../components/DataCard';
 
 const { Content } = Layout;
 
@@ -13,11 +13,9 @@ interface TranscriptPageProps {
   groups: string[];
   transcripts: Transcript[] | undefined;
   userMenu: JSX.Element;
-  darkMode: boolean;
-  debug: boolean;
 }
 
-const TranscriptPage = ({ user, groups, transcripts, userMenu, darkMode, debug }: TranscriptPageProps): JSX.Element => {
+const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageProps): JSX.Element => {
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
@@ -38,20 +36,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu, darkMode, debug }
           </Col>
         </Row>
       </Content>
-      {debug && (
-        <Card title="Data" size="small" style={{ minWidth: '50vw', maxWidth: '75vw', margin: '2em auto' }}>
-          <ReactJson
-            name="transcripts"
-            iconStyle="circle"
-            collapsed
-            quotesOnKeys={false}
-            displayDataTypes={false}
-            displayObjectSize={false}
-            src={transcript ?? {}}
-            theme={darkMode ? 'summerfruit' : 'summerfruit:inverted'}
-          />
-        </Card>
-      )}
+      <DataCard objects={{ transcript }} />
     </Layout>
   );
 };

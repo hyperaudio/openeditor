@@ -1,94 +1,139 @@
-import React, { useCallback, useMemo } from 'react';
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/click-events-have-key-events */
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
 import { DataStore } from 'aws-amplify';
-import ReactJson from 'react-json-view';
-import { Layout, PageHeader, Card, Button } from 'antd';
+import Moment from 'react-moment';
+import 'moment-timezone';
+import { Layout, PageHeader, Table, Typography, Drawer, BackTop } from 'antd';
+import { ColumnsType } from 'antd/es/table';
 
 import { User, Transcript } from '../models';
+import StatusCard, { StatusTag, StatusBadge } from '../components/StatusCard';
+import DataCard from '../components/DataCard';
 
-const { Header, Content } = Layout;
+const { Header, Content, Footer } = Layout;
+const { Text } = Typography;
 
 interface HomeProps {
   user: User | undefined;
   groups: string[];
   userMenu: JSX.Element;
   transcripts: Transcript[] | undefined;
-  darkMode: boolean;
-  debug: boolean;
 }
 
-const Home = ({ user, groups, transcripts, userMenu, debug, darkMode }: HomeProps): JSX.Element => {
+const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Element => {
   const history = useHistory();
 
-  const newTranscript = useCallback(async () => {
-    const transcript = await DataStore.save(
-      new Transcript({
-        title: 'test',
-        language: 'en-US',
-        media: '{}',
-        metadata: '{}',
-        status: JSON.stringify({
-          step: 0,
-          steps: [
-            {
-              type: 'upload',
-              status: 'wait',
-            },
-            {
-              type: 'transcode',
-            },
-            {
-              type: 'transcribe',
-            },
-            {
-              type: 'edit',
-            },
-            {
-              type: 'align',
-            },
-          ],
-        }),
-      }),
-    );
+  const [statusDrawerVisible, setStatusDrawerVisible] = useState(false);
+  const [statusDrawerTranscript, setStatusDrawerTranscript] = useState<Transcript | null>(null);
 
-    console.log({ transcript });
-    history.push(`/${transcript.id}`);
-  }, [history]);
+  const openStatusDrawer = useCallback((transcript: Transcript) => {
+    setStatusDrawerTranscript(transcript);
+    setStatusDrawerVisible(true);
+  }, []);
+  const closeStatusDrawer = useCallback(() => {
+    setStatusDrawerVisible(false);
+    // setStatusDrawerTranscript(null); // TODO: keep while uploading only
+  }, []);
 
-  const sortedTranscripts = useMemo(
-    () => transcripts?.sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime()),
-    [transcripts],
+  const columns = useMemo(
+    (): ColumnsType<Transcript> => [
+      {
+        title: 'Title',
+        dataIndex: 'title',
+        key: 'title',
+        width: '33%',
+        render: (title: string, record: Transcript) => (
+          <span>
+            <Link to={`/${record.id}`}>
+              <Text>{title}</Text>
+            </Link>
+          </span>
+        ),
+      },
+      {
+        title: 'Status',
+        dataIndex: 'status',
+        key: 'status',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        render: (status: any, record) => (
+          <div style={{ display: 'inline-block' }} onClick={() => openStatusDrawer(record)}>
+            <StatusTag transcript={record} />
+          </div>
+        ),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // render: (status: any, record) => <StatusBadge transcript={record} />,
+      },
+      {
+        title: (
+          <span>
+            Last modified <small>(ago)</small>
+          </span>
+        ),
+        dataIndex: 'updatedAt',
+        key: 'updatedAt',
+        align: 'right',
+        render: (updatedAt: string) => (
+          <span title={new Date(updatedAt).toLocaleString()}>
+            <Moment fromNow ago date={updatedAt} />
+          </span>
+        ),
+        defaultSortOrder: 'descend',
+        sorter: (a: Transcript, b: Transcript) =>
+          new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime(),
+      },
+      {
+        title: (
+          <span>
+            Added <small>(ago)</small>
+          </span>
+        ),
+        dataIndex: 'createdAt',
+        key: 'createdAt',
+        align: 'right',
+        render: (createdAt: string) => (
+          <span title={new Date(createdAt).toLocaleString()}>
+            <Moment fromNow ago date={createdAt} />
+          </span>
+        ),
+        sorter: (a: Transcript, b: Transcript) =>
+          new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime(),
+      },
+    ],
+    [],
   );
 
   return (
     <Layout>
       <PageHeader title="OpenEditor" extra={userMenu} />
       <Content>
-        {debug && (
-          <Card title="Data" size="small" style={{ maxWidth: '50vw', margin: '2em auto' }}>
-            <Button onClick={newTranscript}>New Transcript</Button>
-            <ReactJson
-              name="user"
-              iconStyle="circle"
-              collapsed
-              quotesOnKeys={false}
-              displayDataTypes={false}
-              displayObjectSize={false}
-              src={user ?? {}}
-              theme={darkMode ? 'summerfruit' : 'summerfruit:inverted'}
-            />
-            <ReactJson
-              name="transcripts"
-              iconStyle="circle"
-              collapsed
-              quotesOnKeys={false}
-              displayDataTypes={false}
-              displayObjectSize={false}
-              src={sortedTranscripts ?? []}
-              theme={darkMode ? 'summerfruit' : 'summerfruit:inverted'}
-            />
-          </Card>
-        )}
+        <Table dataSource={transcripts} columns={columns} rowKey="id" pagination={false} sticky />
+        <Drawer
+          title={statusDrawerTranscript?.title}
+          placement="right"
+          onClose={closeStatusDrawer}
+          visible={statusDrawerVisible}
+          width={600}>
+          {statusDrawerTranscript ? (
+            <StatusCard transcript={statusDrawerTranscript} user={user} groups={groups} />
+          ) : null}
+        </Drawer>
+        <DataCard objects={{ user, transcripts }} />
+        <Footer>
+          <small style={{ display: 'block', textAlign: 'center' }}>
+            All code open source,{' '}
+            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">
+              GNU AGPL Licensed
+            </a>{' '}
+            and available on{' '}
+            <a href="https://github.com/OpenEditor/openeditor" target="_blank" rel="noopener noreferrer">
+              github.com/OpenEditor
+            </a>{' '}
+            &copy;2019&#8211;{new Date().getFullYear()}{' '}
+          </small>
+        </Footer>
+        <BackTop />
       </Content>
     </Layout>
   );
