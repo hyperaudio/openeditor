@@ -34,3 +34,4 @@ type User
   name: String!
   metadata: AWSJSON!
 }
+ 

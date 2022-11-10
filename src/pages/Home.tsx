@@ -5,7 +5,7 @@ import { Link, useHistory } from 'react-router-dom';
 import { DataStore } from 'aws-amplify';
 import Moment from 'react-moment';
 import 'moment-timezone';
-import { Layout, PageHeader, Table, Typography, Drawer, BackTop } from 'antd';
+import { Layout, Col, Row, PageHeader, Table, Typography, Drawer, BackTop, Button } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 
 import { User, Transcript } from '../models';
@@ -24,6 +24,41 @@ interface HomeProps {
 
 const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Element => {
   const history = useHistory();
+
+  const newTranscript = useCallback(async () => {
+    const transcript = await DataStore.save(
+      new Transcript({
+        title: 'test',
+        language: 'en-US',
+        media: '{}',
+        metadata: '{}',
+        status: JSON.stringify({
+          step: 0,
+          steps: [
+            {
+              type: 'upload',
+              status: 'wait',
+            },
+            {
+              type: 'transcode',
+            },
+            {
+              type: 'transcribe',
+            },
+            {
+              type: 'edit',
+            },
+            {
+              type: 'align',
+            },
+          ],
+        }),
+      }),
+    );
+
+    console.log({ transcript });
+    history.push(`/${transcript.id}`);
+  }, [history]);
 
   const [statusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const [statusDrawerTranscript, setStatusDrawerTranscript] = useState<Transcript | null>(null);
@@ -84,6 +119,12 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
           new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime(),
       },
       {
+        title: 'by',
+        dataIndex: ['metadata', 'updatedBy'],
+        key: 'updatedBy',
+        // render: updatedBy => (true ? <UserName user={updatedBy} /> : null),
+      },
+      {
         title: (
           <span>
             Added <small>(ago)</small>
@@ -100,6 +141,12 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
         sorter: (a: Transcript, b: Transcript) =>
           new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime(),
       },
+      {
+        title: 'by',
+        dataIndex: ['metadata', 'createdBy'],
+        key: 'createdBy',
+        // render: createdBy => (true ? <UserName user={createdBy} /> : null),
+      },
     ],
     [openStatusDrawer],
   );
@@ -108,7 +155,7 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
     <Layout>
       <PageHeader title="OpenEditor" extra={userMenu} />
       <Content>
-        <Table dataSource={transcripts} columns={columns} rowKey="id" pagination={false} sticky />
+        <Table dataSource={transcripts} columns={columns} size="middle" rowKey="id" pagination={false} sticky />
         <Drawer
           title={statusDrawerTranscript?.title}
           placement="right"
@@ -132,6 +179,7 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
             </a>{' '}
             &copy;2019&#8211;{new Date().getFullYear()}{' '}
           </small>
+          <Button onClick={newTranscript}>New Transcript</Button>
         </Footer>
         <BackTop />
       </Content>

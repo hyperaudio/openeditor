@@ -422,7 +422,7 @@ const Status = ({
     : '?';
 
   return (
-    <Tooltip title={message}>
+    <Tooltip title={message} placement="right">
       <Tag {...{ icon, color }}>
         {label} {debugMode ? `(${status})` : null}
       </Tag>
@@ -454,7 +454,7 @@ export const StatusBadge = ({ transcript }: { transcript: Transcript }): JSX.Ele
     : '?';
 
   return (
-    <Tooltip title={message}>
+    <Tooltip title={message} placement="right">
       <Badge status={color as any} text={label} />
     </Tooltip>
   );

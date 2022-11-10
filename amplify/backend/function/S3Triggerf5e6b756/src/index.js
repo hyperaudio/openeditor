@@ -5,6 +5,7 @@
 	REGION
 Amplify Params - DO NOT EDIT */
 /* eslint-disable */
+import consumers from 'stream/consumers';
 import crypto from '@aws-crypto/sha256-js';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
@@ -16,7 +17,11 @@ import {
   GetJobCommand,
 } from '@aws-sdk/client-mediaconvert';
 import { TranscribeClient, StartTranscriptionJobCommand } from '@aws-sdk/client-transcribe';
+import { S3, S3Client } from '@aws-sdk/client-s3';
 import { default as fetch, Request } from 'node-fetch';
+// import { nanoid } from 'nanoid';
+
+// import { convertTranscript } from './utils';
 
 const { Sha256 } = crypto;
 
@@ -24,6 +29,9 @@ const GRAPHQL_ENDPOINT = process.env.API_OPENEDITOR_GRAPHQLAPIENDPOINTOUTPUT;
 const GRAPHQL_API_KEY = process.env.API_OPENEDITOR_GRAPHQLAPIIDOUTPUT;
 const MEDIACONVERT_ROLE = process.env.MEDIACONVERT_ROLE;
 const REGION = process.env.REGION || process.env.AWS_REGION || 'us-east-1';
+
+// const s3client = new S3Client({ region: REGION });
+const s3 = new S3({ region: REGION });
 
 const transcriptQuery = /* GraphQL */ `
   query transcriptQuery($uuid: ID!) {
@@ -330,15 +338,50 @@ export const handler = async function (event) {
     status.steps[transcribeIndex].status = 'finish';
     status.steps[transcribeIndex].data.stt = { key };
 
-    // EDIT status
+    // // EDIT status
+    // const editIndex = status.steps.findIndex(step => step.type === 'edit');
+    // if (!status.steps[editIndex].data) status.steps[editIndex].data = {};
+    // status.step = editIndex;
+    // status.steps[editIndex].status = 'wait';
+    // // UPDATE status
+    // const mutation = await graphqlRequest({
+    //   query: transcriptMutation,
+    //   variables: {
+    //     input: {
+    //       id: uuid,
+    //       status: JSON.stringify(status),
+    //       _version: transcript._version,
+    //     },
+    //   },
+    // });
+
+    // TODO convert Amazon STT -> editor format
+    // read S3 -> text https://github.com/aws/aws-sdk-js-v3/issues/1877#issuecomment-1169119980
+    // TODO check node >= 16
+    const { Body: stream } = await s3.getObject({
+      Bucket: bucket,
+      Key: key,
+    });
+
+    const awsTranscript = JSON.parse(await consumers.text(stream));
+    const converted = convertTranscript(awsTranscript);
+
+    await s3.putObject({
+      Bucket: bucket,
+      Key: key.replace('stt.json', 'transcript.json'),
+      Body: Buffer.from(JSON.stringify(converted)),
+      ContentType: 'application/json',
+    });
+
+    // EDIT status 2
     const editIndex = status.steps.findIndex(step => step.type === 'edit');
     if (!status.steps[editIndex].data) status.steps[editIndex].data = {};
     status.step = editIndex;
-    status.steps[editIndex].status = 'wait';
+    status.steps[editIndex].status = 'process';
     // TODO catch edits and set status to process?
 
     // UPDATE status
-    const mutation = await graphqlRequest({
+    const mutation2 = await graphqlRequest({
       query: transcriptMutation,
       variables: {
         input: {
@@ -349,4 +392,100 @@ export const handler = async function (event) {
       },
     });
   }
+};
+
+const formatTranscript = (items, segments, debug = false) =>
+  segments.map(segment => {
+    const { start, end, speaker } = segment;
+    const tokens = items.filter(({ start: s, end: e }) => start <= s && e <= end);
+
+    const data = {
+      items: tokens,
+      speaker,
+    };
+
+    if (debug) data.segment = segment;
+
+    return {
+      data,
+      text: tokens.map(({ text }) => text).join(' '),
+      entityRanges: [],
+      inlineStyleRanges: [],
+    };
+  });
+
+const convertTranscript = ({
+  results: {
+    transcripts: [{ transcript }],
+    items,
+    speaker_labels: { segments },
+  },
+}) => {
+  const segments2 = segments.map(({ start_time, end_time, speaker_label: speaker }) => ({
+    start: parseFloat(start_time),
+    end: parseFloat(end_time),
+    speaker,
+  }));
+
+  const items2 = items
+    .map(({ start_time, end_time, type, alternatives: [{ content: text }] }) => ({
+      start: parseFloat(start_time),
+      end: parseFloat(end_time),
+      type,
+      text,
+    }))
+    .reduce((acc, { start, end, type, text }) => {
+      if (acc.length === 0) return [{ start, end, text }];
+      const p = acc.pop();
+
+      if (type !== 'pronunciation') {
+        p.text += text;
+        return [...acc, p];
+      }
+      return [...acc, p, { start, end, text }];
+    }, []);
+
+  const tstt = formatTranscript(items2, segments2);
+
+  let speakers = [...new Set(segments2.map(({ speaker }) => speaker))].filter(s => !!s);
+
+  speakers = speakers.reduce((acc, speaker) => {
+    const id = `S${nanoid(5)}`;
+    return { ...acc, [id]: { name: speaker } }; // editor adds id inside
+  }, {});
+
+  const blocks = tstt.map(block => {
+    const items = block.data.items.map((item, i, arr) => {
+      const offset = arr.slice(0, i).reduce((acc, { text }) => acc + text.length + 1, 0);
+      return { ...item, offset, length: item.text.length };
+    });
+
+    return {
+      ...block,
+      key: `B${nanoid(5)}`,
+      data: {
+        ...block.data,
+        start: block.data.items?.[0]?.start ?? 0,
+        end: block.data.items?.[block.data.items.length - 1]?.end ?? 0,
+        speaker: Object.entries(speakers).find(([id, { name }]) => name === block.data.speaker)?.[0],
+        items,
+        stt: items,
+      },
+      entityRanges: [],
+      inlineStyleRanges: [],
+    };
+  });
+
+  const t = {
+    speakers,
+    blocks: blocks,
+  };
+
+  return t;
+};
+
+const nanoid = size => {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  const id = [...Array(size)].map(() => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+  return id;
 };
