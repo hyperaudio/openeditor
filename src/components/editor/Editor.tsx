@@ -95,12 +95,12 @@ const classes = {
 
 interface EditorProps {
   initialState: EditorState;
-  playheadDecorator: typeof PlayheadDecorator;
-  decorators: CompositeDecorator[] | any[];
+  playheadDecorator: typeof PlayheadDecorator | undefined | null;
+  decorators?: CompositeDecorator[] | any[];
   time: number;
   seekTo: (time: number) => void;
-  showDialog: boolean;
-  aligner: (
+  showDialog?: boolean;
+  aligner?: (
     words: { [key: string]: any }[],
     text: string,
     start: number,
@@ -118,11 +118,11 @@ interface EditorProps {
     blocks: RawDraftContentBlock[];
     contentState: ContentState;
   }) => void;
-  autoScroll: boolean;
+  autoScroll?: boolean;
   play: () => void;
   playing: boolean;
   pause: () => void;
-  readOnly: boolean;
+  readOnly?: boolean;
 }
 
 const Editor = ({
