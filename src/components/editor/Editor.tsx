@@ -35,63 +35,86 @@ const classes = {
   root: `${PREFIX}`,
 };
 
-// const Root = styled(Box)(({ theme }) => ({
-//   ...theme.typography.body2,
-//   [`div[data-block='true'] + div[data-block='true']`]: {
-//     marginTop: theme.spacing(3),
-//   },
-//   [`div[data-block='true']`]: {
-//     paddingLeft: `${SPEAKER_AREA_WIDTH}px`,
-//     position: 'relative',
-//   },
-//   // [`div[data-block='true'] .Playhead ~ span`]: {
-//   //   color: theme.palette.text.disabled,
-//   // },
-//   [`div[data-block='true'][data-offset-key]`]: {
-//     [`&:after, &:before`]: {
-//       position: 'absolute',
-//     },
-//     [`&:hover`]: {
-//       color: theme.palette.text.primary,
-//     },
-//   },
-//   [`div[data-block='true'][data-offset-key]::before`]: {
-//     ...theme.typography.caption,
-//     backgroundImage: `url(data:image/svg+xml,${encodeURIComponent(`
-//             <svg width="7" height="${SPEAKER_AREA_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-//               <text x="0" y="17.5" style="font-family: sans-serif; font-size: 12px; fill: ${theme.palette.primary.light};">▾</text>
-//             </svg>
-//           `)})`,
-//     backgroundPosition: '97% center',
-//     backgroundRepeat: 'no-repeat',
-//     color: theme.palette.primary.dark,
-//     cursor: 'pointer',
-//     fontWeight: '600',
-//     height: `${SPEAKER_AREA_HEIGHT}px`,
-//     left: 0,
-//     lineHeight: `${SPEAKER_AREA_HEIGHT}px`,
-//     overflow: 'hidden',
-//     paddingRight: theme.spacing(1.44),
-//     textOverflow: 'ellipsis',
-//     top: 0,
-//     whiteSpace: 'nowrap',
-//     width: `${SPEAKER_AREA_WIDTH - 10}px`,
-//   },
-//   [`div[data-block='true'][data-offset-key]::after`]: {
-//     ...theme.typography.caption,
-//     bottom: '100%',
-//     color: theme.palette.primary.main,
-//     display: 'none',
-//     fontWeight: '600',
-//     left: `${SPEAKER_AREA_WIDTH}px`,
-//     lineHeight: 1,
-//     overflow: 'visible',
-//     pointerEvents: 'none',
-//   },
-//   [`div[data-block='true'][data-offset-key]:hover::after`]: {
-//     display: 'block',
-//   },
-// }));
+const STYLE = `
+  div[data-block='true'] + div[data-block='true'] {
+    margin-top: 5px;
+  }
+
+  div[data-block='true'] {
+    padding-left: ${SPEAKER_AREA_WIDTH}px;
+    position: relative;
+    font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+    'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  }
+
+  /* div[data-block='true'] .Playhead ~ span {
+     color: theme.palette.text.disabled,
+  } */
+
+  .focus-false div[data-block='true'] .Playhead {
+    color: red,
+    text-shadow: -0.03ex 0 0 red, 0.03ex 0 0 red, 0 -0.02ex 0 red, 0 0.02ex 0 red;
+    transition: all 1s;
+  }
+
+  /* div[data-block='true'][data-offset-key] {
+    &:after, &:before {
+      position: absolute;
+    }
+    &:hover {
+      color: red;
+    }
+  } */
+
+  div[data-block='true'][data-offset-key]::after, div[data-block='true'][data-offset-key]::before {
+    position: absolute;
+  }
+
+  div[data-block='true'][data-offset-key]:hover {
+    color: red;
+    font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+    'Noto Color Emoji', 'Noto Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  }
+
+  div[data-block='true'][data-offset-key]::before {
+    background-image: url(data:image/svg+xml,${encodeURIComponent(
+      `<svg width="7" height="${SPEAKER_AREA_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><text x="0" y="17.5" style="font-family: sans-serif; font-size: 12px; fill: blue;">▾</text></svg>`,
+    )});
+    background-position: 97% center;
+    background-repeat: no-repeat;
+    color: blue;
+    cursor: pointer;
+    font-weight: 600;
+    height: ${SPEAKER_AREA_HEIGHT}px;
+    left: 0;
+    line-height: ${SPEAKER_AREA_HEIGHT}px;
+    overflow: hidden;
+    padding-right: 10px;
+    text-overflow: ellipsis;
+    top: 0;
+    white-space: nowrap;
+    width: ${SPEAKER_AREA_WIDTH - 10}px;
+  }
+
+  div[data-block='true'][data-offset-key]::after {
+    bottom: 100%;
+    color: orange;
+    display: none;
+    font-weight: 600;
+    left: ${SPEAKER_AREA_WIDTH}px;
+    line-height: 1;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  div[data-block='true'][data-offset-key]:hover::after {
+    display: block;
+  }
+  `;
 
 interface EditorProps {
   initialState: EditorState;
@@ -415,6 +438,7 @@ const Editor = ({
           <BlockStyle key={block.getKey()} {...{ block, speakers, time }} />
         ))}
       <style scoped>
+        {STYLE}
         {`
           .focus-false div[data-block='true'] .Playhead ~ span {
             color: #757575;

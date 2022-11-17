@@ -2,10 +2,10 @@ import React from 'react';
 // import { styled } from '@mui/material/styles';
 import { ContentBlock, ContentState, EditorState } from 'draft-js';
 
-const PREFIX = 'Playhead';
-const classes = {
-  root: `${PREFIX}`,
-};
+// const PREFIX = 'Playhead';
+// const classes = {
+//   root: `${PREFIX}`,
+// };
 
 // const Root = styled('span')(({ theme }) => ({
 //   '.focus-false &': {
@@ -16,7 +16,7 @@ const classes = {
 // }));
 
 const PlayheadSpan = ({ children }: { children: JSX.Element[] }): JSX.Element => (
-  <div className={classes.root}>{children}</div>
+  <span className="Playhead">{children}</span>
 );
 
 const PlayheadDecorator = {

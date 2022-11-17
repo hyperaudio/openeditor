@@ -11,6 +11,7 @@ import Draggable from 'react-draggable';
 import ReactPlayer from 'react-player';
 import { Layout, Col, Row, PageHeader, Drawer, BackTop } from 'antd';
 import axios from 'axios';
+import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
@@ -41,32 +42,63 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const [data, setData] = useState<{ speakers: { [key: string]: any }; blocks: RawDraftContentBlock[] }>();
   const [error, setError] = useState<Error>();
 
+  // TODO do not fetch unless the status has transcript
   useEffect(() => {
     (async () => {
-      setData((await axios.get(await Storage.get(`transcript/${uuid}/transcript.json`, { level: 'public' }))).data);
+      try {
+        setData((await axios.get(await Storage.get(`transcript/${uuid}/transcript.json`, { level: 'public' }))).data);
+      } catch (error) {
+        setError(error as Error);
+      }
     })();
   }, [uuid]);
 
-  const [speakers, setSpeakers] = useState({});
-  const { blocks } = data ?? {};
+  const [speakers, setSpeakers] = useState<{ [key: string]: any }>({});
+  useEffect(() => setSpeakers(data?.speakers ?? {}), [data]);
 
+  const { blocks } = data ?? {};
   const initialState = useMemo(
     () => blocks && EditorState.createWithContent(convertFromRaw({ blocks, entityMap: createEntityMap(blocks) })),
     [blocks],
   );
 
-  const setDraft = useCallback(
-    (state: {
-      speakers: {
-        [key: string]: any;
-      };
-      blocks: RawDraftContentBlock[];
-      contentState: ContentState;
-    }) => {
-      console.log('TODO setDraft');
-    },
-    [],
-  );
+  const [draft, setDraft] = useState<{
+    speakers: { [key: string]: any };
+    blocks: RawDraftContentBlock[];
+    contentState: ContentState;
+  }>();
+
+  const handleSave = useCallback(async () => {
+    if (!user || !transcript || !draft) return;
+
+    const data = { speakers, blocks: draft.blocks };
+
+    // TODO make setSpeakers be useReducer and clean-up this there
+    const allSpeakerIds = [...new Set(Object.keys(data.speakers))];
+    const usedSpeakerIds = [...new Set(data.blocks.map(({ data: { speaker } = {} }) => speaker))];
+    const unusedSpeakerIds = allSpeakerIds.filter(id => !usedSpeakerIds.includes(id));
+    unusedSpeakerIds.forEach(id => delete data.speakers[id]);
+
+    const utf8Data = new TextEncoder().encode(JSON.stringify(data));
+    const jsonGz = pako.gzip(utf8Data);
+    const blobGz = new Blob([jsonGz]);
+
+    await Storage.put(`transcript/${uuid}/transcript.json`, blobGz, {
+      level: 'public',
+      contentType: 'application/json',
+      contentEncoding: 'gzip',
+      metadata: {
+        user: user.id,
+        language: transcript.language,
+      },
+      progressCallback(progress) {
+        // const percentCompleted = Math.round((progress.loaded * 100) / progress.total);
+        // setSavingProgress(percentCompleted);
+      },
+    });
+
+    // TODO update updatedAt/updatedBy in metadata
+  }, [speakers, draft, uuid, transcript, user]);
 
   const [time, setTime] = useState(0);
 
@@ -80,11 +112,9 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
 
   const audioKey = useMemo(() => {
     if (!transcript) return null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { steps } = (transcript.status as unknown as Record<string, any>) ?? { step: 0, steps: [] };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const transcodeIndex = steps.findIndex((step: any) => step.type === 'transcode');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     return (steps[transcodeIndex] as any)?.data?.audio?.key;
   }, [transcript]);
 
@@ -110,7 +140,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
             {initialState ? (
               <Editor
                 {...{ initialState, time, seekTo, speakers, setSpeakers, playing, play, pause }}
-                autoScroll
+                autoScroll={false}
                 onChange={setDraft}
                 playheadDecorator={noKaraoke ? null : undefined}
               />
@@ -164,12 +194,8 @@ const Player = ({
             download: false,
             expires: 36000,
           }),
-          // 'https://stream.hyper.audio/q3xsh/hls/YCCJ4HtHr4jy2Dxxr5wf2U/video.m3u8',
-          // 'https://stream.hyper.audio/q3xsh/input/YCCJ4HtHr4jy2Dxxr5wf2U/video.mp4',
         ))();
   }, [audioKey]);
-
-  // console.log(url);
 
   const handleDragStop = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,10 +215,6 @@ const Player = ({
           // poster: 'https://via.placeholder.com/720x576.png?text=4:3',
           controlsList: 'nodownload',
         },
-        // hlsOptions: {
-        //   backBufferLength: 30,
-        //   maxMaxBufferLength: 30,
-        // },
       },
     }),
     [audio],
@@ -232,6 +254,13 @@ const Player = ({
           width="100%"
           height="100%"
         />
+        <style>
+          {`
+          audio {
+            background-color: white;
+          }
+        `}
+        </style>
       </div>
     </Draggable>
   ) : null;
