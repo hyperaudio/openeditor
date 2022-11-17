@@ -19,9 +19,8 @@ import {
 import { TranscribeClient, StartTranscriptionJobCommand } from '@aws-sdk/client-transcribe';
 import { S3, S3Client } from '@aws-sdk/client-s3';
 import { default as fetch, Request } from 'node-fetch';
-// import { nanoid } from 'nanoid';
-
-// import { convertTranscript } from './utils';
+import { nanoid } from 'nanoid';
+import pako from 'pako';
 
 const { Sha256 } = crypto;
 
@@ -338,23 +337,6 @@ export const handler = async function (event) {
     status.steps[transcribeIndex].status = 'finish';
     status.steps[transcribeIndex].data.stt = { key };
 
-    // // EDIT status
-    // const editIndex = status.steps.findIndex(step => step.type === 'edit');
-    // if (!status.steps[editIndex].data) status.steps[editIndex].data = {};
-    // status.step = editIndex;
-    // status.steps[editIndex].status = 'wait';
-    // // UPDATE status
-    // const mutation = await graphqlRequest({
-    //   query: transcriptMutation,
-    //   variables: {
-    //     input: {
-    //       id: uuid,
-    //       status: JSON.stringify(status),
-    //       _version: transcript._version,
-    //     },
-    //   },
-    // });
-
     // TODO convert Amazon STT -> editor format
     // read S3 -> text https://github.com/aws/aws-sdk-js-v3/issues/1877#issuecomment-1169119980
     // TODO check node >= 16
@@ -366,14 +348,26 @@ export const handler = async function (event) {
     const awsTranscript = JSON.parse(await consumers.text(stream));
     const converted = convertTranscript(awsTranscript);
 
+    // await s3.putObject({
+    //   Bucket: bucket,
+    //   Key: key.replace('stt.json', 'transcript.json'),
+    //   Body: Buffer.from(JSON.stringify(converted)),
+    //   ContentType: 'application/json',
+    // });
+
+    const utf8Data = new TextEncoder('utf-8').encode(JSON.stringify(converted));
+    const jsonGz = pako.gzip(utf8Data);
+    // const blobGz = new Blob([jsonGz]);
+
     await s3.putObject({
       Bucket: bucket,
       Key: key.replace('stt.json', 'transcript.json'),
-      Body: Buffer.from(JSON.stringify(converted)),
+      Body: Buffer.from(jsonGz),
       ContentType: 'application/json',
+      ContentEncoding: 'gzip',
     });
 
-    // EDIT status 2
+    // EDIT status
     const editIndex = status.steps.findIndex(step => step.type === 'edit');
     if (!status.steps[editIndex].data) status.steps[editIndex].data = {};
     status.step = editIndex;
@@ -381,7 +375,7 @@ export const handler = async function (event) {
     // TODO catch edits and set status to process?
 
     // UPDATE status
-    const mutation2 = await graphqlRequest({
+    const mutation = await graphqlRequest({
       query: transcriptMutation,
       variables: {
         input: {
@@ -484,8 +478,8 @@ const convertTranscript = ({
   return t;
 };
 
-const nanoid = size => {
-  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  const id = [...Array(size)].map(() => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
-  return id;
-};
+// const nanoid = size => {
+//   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+//   const id = [...Array(size)].map(() => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+//   return id;
+// };
