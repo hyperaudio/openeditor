@@ -6,17 +6,16 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObject } from 'react';
 import { useParams } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
-import { useAtom } from 'jotai';
-import Draggable from 'react-draggable';
+// import { useAtom } from 'jotai';
 import ReactPlayer from 'react-player';
-import { Layout, Col, Row, PageHeader, Drawer, BackTop } from 'antd';
+import { Layout, Col, Row, PageHeader, Drawer, BackTop, Skeleton } from 'antd';
 import axios from 'axios';
 import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 
-import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import { User, Transcript } from '../models';
-import { playerPositionAtom } from '../atoms';
+import Player from '../components/Player';
+import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/StatusCard';
 import DataCard from '../components/DataCard';
 
@@ -39,28 +38,24 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const openStatusDrawer = useCallback(() => setStatusDrawerVisible(true), []);
   const closeStatusDrawer = useCallback(() => setStatusDrawerVisible(false), []);
 
-  const [data, setData] = useState<{ speakers: { [key: string]: any }; blocks: RawDraftContentBlock[] }>();
+  const [initialState, setInitialState] = useState<EditorState>();
+  const [speakers, setSpeakers] = useState<{ [key: string]: any }>({});
   const [error, setError] = useState<Error>();
 
   // TODO do not fetch unless the status has transcript
   useEffect(() => {
     (async () => {
       try {
-        setData((await axios.get(await Storage.get(`transcript/${uuid}/transcript.json`, { level: 'public' }))).data);
+        const {
+          data: { speakers = {}, blocks = [] },
+        } = await axios.get(await Storage.get(`transcript/${uuid}/transcript.json`, { level: 'public' }));
+        setSpeakers(speakers);
+        setInitialState(EditorState.createWithContent(convertFromRaw({ blocks, entityMap: createEntityMap(blocks) })));
       } catch (error) {
         setError(error as Error);
       }
     })();
   }, [uuid]);
-
-  const [speakers, setSpeakers] = useState<{ [key: string]: any }>({});
-  useEffect(() => setSpeakers(data?.speakers ?? {}), [data]);
-
-  const { blocks } = data ?? {};
-  const initialState = useMemo(
-    () => blocks && EditorState.createWithContent(convertFromRaw({ blocks, entityMap: createEntityMap(blocks) })),
-    [blocks],
-  );
 
   const [draft, setDraft] = useState<{
     speakers: { [key: string]: any };
@@ -100,12 +95,11 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
     // TODO update updatedAt/updatedBy in metadata
   }, [speakers, draft, uuid, transcript, user]);
 
+  const ref = useRef<ReactPlayer | null>() as MutableRefObject<ReactPlayer>;
   const [time, setTime] = useState(0);
 
   const noKaraoke = false;
-  const seekTo = (time: number): void => {
-    console.log('TODO seekTo', time);
-  };
+  const seekTo = useCallback((time: number) => ref.current?.seekTo(time, 'seconds'), []);
   const [playing, setPlaying] = useState(false);
   const play = useCallback(() => setPlaying(true), []);
   const pause = useCallback(() => setPlaying(false), []);
@@ -130,13 +124,10 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         }
         extra={userMenu}
       />
-      <Player {...{ audioKey, playing, play, pause, setTime }} />
+      <Player {...{ audioKey, playing, play, pause, setTime, ref }} />
       <Content>
         <Row>
           <Col span={19} offset={3}>
-            <p>
-              {time} : {playing ? 'playing' : 'paused'}
-            </p>
             {initialState ? (
               <Editor
                 {...{ initialState, time, seekTo, speakers, setSpeakers, playing, play, pause }}
@@ -147,7 +138,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
             ) : error ? (
               <p>Error: {error?.message}</p>
             ) : (
-              <p>TODO skeleton loader</p>
+              <Skeleton active />
             )}
           </Col>
         </Row>
@@ -165,105 +156,6 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
       <DataCard objects={{ transcript }} />
     </Layout>
   );
-};
-
-const Player = ({
-  audioKey,
-  playing,
-  play,
-  pause,
-  setTime,
-}: {
-  audioKey: string | null;
-  playing: boolean;
-  play: () => void;
-  pause: () => void;
-  setTime: (t: number) => void;
-}): JSX.Element | null => {
-  const audio = true;
-
-  const [position, setPosition] = useAtom(playerPositionAtom);
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    // eslint-disable-next-line no-unused-expressions
-    audioKey &&
-      (async () =>
-        setUrl(
-          await Storage.get(audioKey.replace('public/', ''), {
-            download: false,
-            expires: 36000,
-          }),
-        ))();
-  }, [audioKey]);
-
-  const handleDragStop = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (e: any, data: any) => {
-      const { x, y } = data;
-      setPosition({ x, y });
-    },
-    [setPosition],
-  );
-
-  const config = useMemo(
-    () => ({
-      forceAudio: audio,
-      forceVideo: !audio,
-      file: {
-        attributes: {
-          // poster: 'https://via.placeholder.com/720x576.png?text=4:3',
-          controlsList: 'nodownload',
-        },
-      },
-    }),
-    [audio],
-  );
-
-  const ref = useRef<ReactPlayer>() as MutableRefObject<ReactPlayer>;
-
-  const onDuration = useCallback((duration: number) => {
-    console.log({ duration });
-  }, []);
-
-  const onProgress = useCallback(
-    ({ playedSeconds }: { playedSeconds: number }) => {
-      console.log({ playedSeconds });
-      setTime(playedSeconds);
-    },
-    [setTime],
-  );
-
-  return url ? (
-    <Draggable defaultPosition={position} onStop={handleDragStop}>
-      <div
-        style={{
-          width: '300px',
-          backgroundColor: audio ? 'transparent' : 'black',
-          padding: '4px',
-          boxShadow: '0 0 15px gray',
-          zIndex: 999,
-          aspectRatio: audio ? '16/3' : '16/9',
-        }}>
-        <ReactPlayer
-          controls
-          {...{ ref, url, config, playing, onDuration, onProgress }}
-          onPlay={play}
-          onPause={pause}
-          progressInterval={100}
-          width="100%"
-          height="100%"
-        />
-        <style>
-          {`
-          audio {
-            background-color: white;
-          }
-        `}
-        </style>
-      </div>
-    </Draggable>
-  ) : null;
 };
 
 export default TranscriptPage;
