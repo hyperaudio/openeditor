@@ -29,6 +29,7 @@
     "moment": "^2.29.4",
     "moment-timezone": "^0.5.37",
     "nanoid": "^4.0.0",
+    "object-hash": "^3.0.0",
     "pako": "^2.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -55,7 +56,8 @@
     "clean": "rimraf build",
     "cypress:open": "cypress open",
     "update-languages": "node ./scripts/updateLanguages.js",
-    "update-antd.dark.css": "cp ./node_modules/antd/dist/antd.dark.css ./public/style/"
+    "update-antd.dark.css": "cp ./node_modules/antd/dist/antd.dark.css ./public/style/",
+    "deploy:surge": "yarn build && cp ./build/index.html ./build/200.html && surge build openeditor.surge.sh"
   },
   "browserslist": {
     "production": [
@@ -71,11 +73,12 @@
   },
   "devDependencies": {
     "@types/draft-js": "^0.11.9",
+    "@types/object-hash": "^2.2.1",
+    "@types/pako": "2.0.0",
     "@types/react-router-dom": "^5.3.3",
     "@types/smpte-timecode": "^1.2.1",
     "@types/ua-parser-js": "^0.7.36",
     "@types/uuid": "^8.3.4",
-    "@types/pako": "2.0.0",
     "@typescript-eslint/eslint-plugin": "^5.30.6",
     "@typescript-eslint/parser": "^5.30.6",
     "cypress": "^10.3.0",

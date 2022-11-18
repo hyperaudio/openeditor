@@ -6,18 +6,21 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObject } from 'react';
 import { useParams } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
-// import { useAtom } from 'jotai';
+import { useAtom } from 'jotai';
 import ReactPlayer from 'react-player';
-import { Layout, Col, Row, PageHeader, Drawer, BackTop, Skeleton } from 'antd';
+import { Layout, Col, Row, PageHeader, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider } from 'antd';
+import ExportOutlined from '@ant-design/icons/ExportOutlined';
 import axios from 'axios';
 import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 
+import { darkModeAtom } from '../atoms';
 import { User, Transcript } from '../models';
 import Player from '../components/Player';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/StatusCard';
 import DataCard from '../components/DataCard';
+import Footer from '../components/Footer';
 
 const { Content } = Layout;
 
@@ -32,11 +35,22 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
+  const [darkMode] = useAtom(darkModeAtom);
+
   const transcript = useMemo(() => transcripts?.find(({ id }) => id === uuid), [transcripts, uuid]);
+  const { step, steps } = useMemo(() => {
+    if (!transcript) return { step: -1, steps: [] };
+    return (transcript.status as unknown as Record<string, any>) ?? { step: -1, steps: [] };
+  }, [transcript]);
 
   const [statusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const openStatusDrawer = useCallback(() => setStatusDrawerVisible(true), []);
-  const closeStatusDrawer = useCallback(() => setStatusDrawerVisible(false), []);
+  const closeStatusDrawer = useCallback(() => setStatusDrawerVisible(step >= 0 && step < 3), [step]);
+
+  useEffect(
+    () => setStatusDrawerVisible(step >= 0 && step < 3 ? true : statusDrawerVisible),
+    [step, statusDrawerVisible],
+  );
 
   const [initialState, setInitialState] = useState<EditorState>();
   const [speakers, setSpeakers] = useState<{ [key: string]: any }>({});
@@ -44,6 +58,8 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
 
   // TODO do not fetch unless the status has transcript
   useEffect(() => {
+    if (step < 3) return;
+
     (async () => {
       try {
         const {
@@ -55,7 +71,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         setError(error as Error);
       }
     })();
-  }, [uuid]);
+  }, [uuid, step]);
 
   const [draft, setDraft] = useState<{
     speakers: { [key: string]: any };
@@ -63,8 +79,22 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
     contentState: ContentState;
   }>();
 
+  const [saved, setSaved] = useState<{
+    speakers: { [key: string]: any };
+    blocks: RawDraftContentBlock[];
+    contentState: ContentState;
+  }>();
+  // const [autoSaved, setAutoSaved] = useState();
+  const [saving, setSaving] = useState(0);
+  const [savingProgress, setSavingProgress] = useState(0);
+
+  // TODO window.onbeforeunload
+  // const unsavedChanges = useMemo(() => draft?.contentState !== saved?.contentState, [draft, saved]);
+
   const handleSave = useCallback(async () => {
     if (!user || !transcript || !draft) return;
+    setSavingProgress(0);
+    setSaving(2);
 
     const data = { speakers, blocks: draft.blocks };
 
@@ -87,12 +117,16 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         language: transcript.language,
       },
       progressCallback(progress) {
-        // const percentCompleted = Math.round((progress.loaded * 100) / progress.total);
-        // setSavingProgress(percentCompleted);
+        const percentCompleted = Math.round((progress.loaded * 100) / progress.total);
+        setSavingProgress(percentCompleted);
       },
     });
 
+    setSaving(1);
+
     // TODO update updatedAt/updatedBy in metadata
+    setTimeout(() => setSaving(0), 500);
+    setSaved(draft);
   }, [speakers, draft, uuid, transcript, user]);
 
   const ref = useRef<ReactPlayer | null>() as MutableRefObject<ReactPlayer>;
@@ -122,13 +156,36 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
             {transcript ? <StatusTag transcript={transcript} /> : null}
           </div>
         }
-        extra={userMenu}
+        extra={
+          <Space>
+            <Button
+              type="primary"
+              shape="round"
+              disabled={step !== 3 || !draft || saving !== 0}
+              loading={saving !== 0}
+              onClick={handleSave}>
+              {saving === 0 ? `Save` : `Saving ${savingProgress}%`}
+            </Button>
+            <Button shape="round" disabled={true || step !== 3 || !draft} icon={<ExportOutlined />}>
+              Export
+            </Button>
+            <Divider type="vertical" />
+            {userMenu}
+          </Space>
+        }
       />
       <Player {...{ audioKey, playing, play, pause, setTime, ref }} />
       <Content>
-        <Row>
-          <Col span={19} offset={3}>
-            {initialState ? (
+        <Row
+          style={{
+            backgroundColor: darkMode ? 'black' : 'white',
+            paddingTop: '3em',
+            paddingBottom: '5em',
+          }}>
+          <Col span={20} offset={2}>
+            {step < 3 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ) : initialState ? (
               <Editor
                 {...{ initialState, time, seekTo, speakers, setSpeakers, playing, play, pause }}
                 autoScroll={false}
@@ -138,11 +195,12 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
             ) : error ? (
               <p>Error: {error?.message}</p>
             ) : (
-              <Skeleton active />
+              <Skeleton active paragraph={{ rows: 31 }} />
             )}
           </Col>
         </Row>
       </Content>
+      <Footer />
       <BackTop />
       <Drawer
         destroyOnClose
@@ -150,6 +208,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         placement="right"
         onClose={closeStatusDrawer}
         visible={statusDrawerVisible}
+        closable={!(step < 3)}
         width={600}>
         {transcript ? <StatusCard transcript={transcript} user={user} groups={groups} /> : null}
       </Drawer>

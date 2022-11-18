@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable react/jsx-props-no-spreading */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
@@ -21,10 +22,12 @@ import bs58 from 'bs58';
 import { useDebounce } from 'use-debounce';
 // import { intersection, arrayIntersection } from 'interval-operations';
 import UAParser from 'ua-parser-js';
+import { useAtom } from 'jotai';
+
+import { darkModeAtom } from '../../atoms';
 
 import PlayheadDecorator from './PlayheadDecorator';
 import reducer from './reducer';
-// import { Theme } from '@mui/system';
 
 // const filter = createFilterOptions();
 
@@ -35,86 +38,88 @@ const classes = {
   root: `${PREFIX}`,
 };
 
-const STYLE = `
-  div[data-block='true'] + div[data-block='true'] {
-    margin-top: 5px;
-  }
+// const STYLE = `
+//   div[data-block='true'] + div[data-block='true'] {
+//     margin-top: 24px;
+//   }
 
-  div[data-block='true'] {
-    padding-left: ${SPEAKER_AREA_WIDTH}px;
-    position: relative;
-    font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
-    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
-    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
-    'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-  }
+//   div[data-block='true'] {
+//     padding-left: ${SPEAKER_AREA_WIDTH}px;
+//     position: relative;
+//     font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+//     'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+//     'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+//     'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+//     font-size: 16px;
+//     font-weight: 400;
+//   }
 
-  /* div[data-block='true'] .Playhead ~ span {
-     color: theme.palette.text.disabled,
-  } */
+//   div[data-block='true'] .Playhead ~ span {
+//     color: #757575;
+//     font-weight: 400;
+//   }
 
-  .focus-false div[data-block='true'] .Playhead {
-    color: red,
-    text-shadow: -0.03ex 0 0 red, 0.03ex 0 0 red, 0 -0.02ex 0 red, 0 0.02ex 0 red;
-    transition: all 1s;
-  }
+//   .focus-false div[data-block='true'] .Playhead ~ span {
+//     color: #757575;
+//     font-weight: 400;
+//   }
 
-  /* div[data-block='true'][data-offset-key] {
-    &:after, &:before {
-      position: absolute;
-    }
-    &:hover {
-      color: red;
-    }
-  } */
+//   .focus-false div[data-block='true'] .Playhead {
+//     color: blue;
+//     /* text-shadow: -0.03ex 0 0 blue, 0.03ex 0 0 blue, 0 -0.02ex 0 blue, 0 0.02ex 0 blue; */
+//     font-weight: 600;
+//     transition: all 0.2s;
+//   }
 
-  div[data-block='true'][data-offset-key]::after, div[data-block='true'][data-offset-key]::before {
-    position: absolute;
-  }
+//   div[data-block='true'][data-offset-key]::after, div[data-block='true'][data-offset-key]::before {
+//     position: absolute;
+//   }
 
-  div[data-block='true'][data-offset-key]:hover {
-    color: red;
-    font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
-    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
-    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
-    'Noto Color Emoji', 'Noto Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-  }
+//   div[data-block='true'][data-offset-key]:hover {
+//     color: black;
+//     font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+//     'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+//     'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+//     'Noto Color Emoji', 'Noto Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+//   }
 
-  div[data-block='true'][data-offset-key]::before {
-    background-image: url(data:image/svg+xml,${encodeURIComponent(
-      `<svg width="7" height="${SPEAKER_AREA_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><text x="0" y="17.5" style="font-family: sans-serif; font-size: 12px; fill: blue;">▾</text></svg>`,
-    )});
-    background-position: 97% center;
-    background-repeat: no-repeat;
-    color: blue;
-    cursor: pointer;
-    font-weight: 600;
-    height: ${SPEAKER_AREA_HEIGHT}px;
-    left: 0;
-    line-height: ${SPEAKER_AREA_HEIGHT}px;
-    overflow: hidden;
-    padding-right: 10px;
-    text-overflow: ellipsis;
-    top: 0;
-    white-space: nowrap;
-    width: ${SPEAKER_AREA_WIDTH - 10}px;
-  }
+//   div[data-block='true'][data-offset-key]::before {
+//     background-image: url(data:image/svg+xml,${encodeURIComponent(
+//       `<svg width="7" height="${SPEAKER_AREA_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><text x="0" y="17.5" style="font-family: sans-serif; font-size: 12px; fill: darkblue;">▾</text></svg>`,
+//     )});
+//     background-position: 97% center;
+//     background-repeat: no-repeat;
+//     color: darkblue;
+//     cursor: pointer;
+//     font-size: 14px;
+//     font-weight: 500;
+//     height: ${SPEAKER_AREA_HEIGHT}px;
+//     left: 0;
+//     line-height: ${SPEAKER_AREA_HEIGHT}px;
+//     overflow: hidden;
+//     padding-right: 10px;
+//     text-overflow: ellipsis;
+//     top: 0;
+//     white-space: nowrap;
+//     width: ${SPEAKER_AREA_WIDTH - 10}px;
+//   }
 
-  div[data-block='true'][data-offset-key]::after {
-    bottom: 100%;
-    color: orange;
-    display: none;
-    font-weight: 600;
-    left: ${SPEAKER_AREA_WIDTH}px;
-    line-height: 1;
-    overflow: visible;
-    pointer-events: none;
-  }
+//   div[data-block='true'][data-offset-key]::after {
+//     bottom: 100%;
+//     color: darkblue;
+//     display: none;
+//     font-size: 12px;
+//     font-weight: 500;
+//     left: ${SPEAKER_AREA_WIDTH}px;
+//     line-height: 1;
+//     overflow: visible;
+//     pointer-events: none;
+//   }
 
-  div[data-block='true'][data-offset-key]:hover::after {
-    display: block;
-  }
-  `;
+//   div[data-block='true'][data-offset-key]:hover::after {
+//     display: block;
+//   }
+//   `;
 
 interface EditorProps {
   initialState: EditorState;
@@ -437,14 +442,7 @@ const Editor = ({
         .map((block: ContentBlock) => (
           <BlockStyle key={block.getKey()} {...{ block, speakers, time }} />
         ))}
-      <style scoped>
-        {STYLE}
-        {`
-          .focus-false div[data-block='true'] .Playhead ~ span {
-            color: #757575;
-          }
-        `}
-      </style>
+      <EditorStyleElement />
     </div>
   );
 };
@@ -460,6 +458,7 @@ const BlockStyle = ({
   time: number;
   activeInterval?: any[];
 }): JSX.Element => {
+  const [darkMode] = useAtom(darkModeAtom);
   const speaker = useMemo(() => speakers?.[block.getData().get('speaker')]?.name ?? '', [block, speakers]);
   const start = useMemo(() => block.getData().get('start'), [block]);
   const end = useMemo(() => block.getData().get('end'), [block]);
@@ -467,9 +466,9 @@ const BlockStyle = ({
   // const intersects = useMemo(() => intersection([start, end], activeInterval), [start, end, activeInterval]);
 
   return (
-    <Style
-      {...{ speaker, tc }}
-      played={time < start}
+    <BlockStyleElement
+      {...{ speaker, tc, darkMode }}
+      future={time < start}
       current={start <= time && time < end}
       blockKey={block.getKey()}
       intersects={false}
@@ -477,42 +476,135 @@ const BlockStyle = ({
   );
 };
 
-const Style = ({
+const BlockStyleElement = ({
   blockKey,
   speaker,
-  played,
+  future,
   current,
   tc,
   intersects,
+  darkMode,
 }: {
   blockKey: string;
   speaker: string;
-  played: boolean;
+  future: boolean;
   current: boolean;
   tc: string;
   intersects?: boolean;
+  darkMode: boolean;
 }): JSX.Element => (
   <style scoped>
     {`
       div[data-block='true'][data-offset-key="${blockKey}-0-0"] {
-        color: ${played ? 'green' : 'black'};
-        border-radius: 10px;
+        color: ${future ? '#757575' : darkMode ? 'white' : 'black'};
+        font-weight: ${future ? 400 : 500};
       }
-      .Right div[data-block='true'][data-offset-key="${blockKey}-0-0"] {
-        background-color: ${current ? 'white' : 'inherit'};
-      }
-      .Left div[data-block='true'][data-offset-key="${blockKey}-0-0"] {
-        background-color: ${current ? '#F5F5F7' : 'inherit'};
-      }
+
       div[data-block='true'][data-offset-key="${blockKey}-0-0"]::before {
         content: '${speaker}';
       }
+
       div[data-block='true'][data-offset-key="${blockKey}-0-0"]::after {
         content: '${tc}';
       }
     `}
   </style>
 );
+
+const EditorStyleElement = (): JSX.Element => {
+  const [darkMode] = useAtom(darkModeAtom);
+
+  const style = useMemo(
+    () => `
+  div[data-block='true'] + div[data-block='true'] {
+    margin-top: 24px;
+  }
+
+  div[data-block='true'] {
+    padding-left: ${SPEAKER_AREA_WIDTH}px;
+    position: relative;
+    font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+    'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  div[data-block='true'] .Playhead ~ span {
+    color: #757575;
+    font-weight: 400;
+  }
+
+  .focus-false div[data-block='true'] .Playhead ~ span {
+    color: #757575;
+    font-weight: 400;
+  }
+
+  .focus-false div[data-block='true'] .Playhead {
+    color: #177ddc;
+    /* text-shadow: -0.03ex 0 0 blue, 0.03ex 0 0 blue, 0 -0.02ex 0 blue, 0 0.02ex 0 blue; */
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  div[data-block='true'][data-offset-key]::after, div[data-block='true'][data-offset-key]::before {
+    position: absolute;
+  }
+
+  div[data-block='true'][data-offset-key]:hover {
+    color: ${darkMode ? 'white' : 'black'};
+    font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+    'Noto Color Emoji', 'Noto Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  }
+
+  div[data-block='true'][data-offset-key]::before {
+    background-image: url(data:image/svg+xml,${encodeURIComponent(
+      `<svg width="7" height="${SPEAKER_AREA_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><text x="0" y="17.5" style="font-family: sans-serif; font-size: 12px; fill: #177ddc;">▾</text></svg>`,
+    )});
+    background-position: 97% center;
+    background-repeat: no-repeat;
+    color: #177ddc;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    height: ${SPEAKER_AREA_HEIGHT}px;
+    left: 0;
+    line-height: ${SPEAKER_AREA_HEIGHT}px;
+    overflow: hidden;
+    padding-right: 10px;
+    text-overflow: ellipsis;
+    top: 0;
+    white-space: nowrap;
+    width: ${SPEAKER_AREA_WIDTH - 10}px;
+  }
+
+  div[data-block='true'][data-offset-key]::after {
+    bottom: 100%;
+    color: transparent;
+    /* display: none; */
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    left: ${SPEAKER_AREA_WIDTH}px;
+    line-height: 1;
+    overflow: visible;
+    pointer-events: none;
+    transition-delay: 1s;
+  }
+
+  div[data-block='true'][data-offset-key]:hover::after {
+    display: block;
+    color: #177ddc;
+    transition: 0.2s;
+  }
+  `,
+    [darkMode],
+  );
+  return <style scoped>{style}</style>;
+};
 
 const timecode = (seconds = 0, frameRate = 25, dropFrame = false): string =>
   TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)

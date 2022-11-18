@@ -134,11 +134,13 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
       status,
       progress,
       data = {},
+      title,
     }: {
       step: number;
       status: 'wait' | 'process' | 'finish' | 'error' | undefined;
       progress?: number | undefined;
       data?: Record<string, unknown> | undefined;
+      title?: string | undefined;
     }) => {
       const original = await DataStore.query(Transcript, uuid);
       if (!original) return;
@@ -164,19 +166,38 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
               ...originalStatus.steps.slice(step + 1),
             ],
           });
+          // eslint-disable-next-line no-param-reassign
+          if (title) updated.title = title;
         }),
       );
     },
     [uuid],
   );
 
+  // const updateTitle = useCallback(
+  //   async (title: string) => {
+  //     const original = await DataStore.query(Transcript, uuid);
+  //     if (!original) return;
+
+  //     await DataStore.save(
+  //       Transcript.copyOf(original, (updated: any) => {
+  //         // eslint-disable-next-line no-param-reassign
+  //         updated.title = title;
+  //       }),
+  //     );
+  //   },
+  //   [uuid],
+  // );
+
   const handleUpload = useCallback(
     async ({ file, onError, onSuccess, onProgress, filename, data }: UploadRequestOption) => {
       setStatus('process');
-      updateStatus({ step: 0, status: 'process', progress: 0 });
 
       const { name, type, size } = file as RcFile;
       // FIXME: limit on type and size?
+
+      await updateStatus({ step: 0, status: 'process', progress: 0, title: name });
+      // await updateTitle(name);
 
       const key = `uploads/${new Date()
         .toISOString()
@@ -201,7 +222,7 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
         message.error('Upload failed');
 
         setStatus('error');
-        updateStatus({ step: 0, status: 'error', progress: 0 });
+        await updateStatus({ step: 0, status: 'error', progress: 0 });
 
         if (onError) onError(error as UploadRequestError);
       }
@@ -299,6 +320,7 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
                   onDownload={handleDownload}>
                   {fileList.current.length === 0 && (
                     <Button
+                      type="primary"
                       icon={<UploadOutlined />}
                       disabled={step !== index || status === 'process' || status === 'finish'}>
                       Upload

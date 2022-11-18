@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Switch, Route } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Auth, DataStore, Hub } from 'aws-amplify';
-import { ThemeProvider, defaultDarkModeOverride, Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
+import { defaultDarkModeOverride, useAuthenticator } from '@aws-amplify/ui-react';
 import { useAtom } from 'jotai';
 import { useKonami } from 'react-konami-code';
 
@@ -30,14 +30,29 @@ const getUsers = async (setUsers: (users: User[]) => void): Promise<void> => set
 const getTranscripts = async (setTranscripts: (transcripts: Transcript[]) => void): Promise<void> =>
   setTranscripts(await DataStore.query(Transcript));
 
+const AppWrapper = (): JSX.Element => {
+  const { authStatus } = useAuthenticator(context => [context.user]);
+  const [darkMode] = useAtom(darkModeAtom);
+
+  return (
+    <>
+      {darkMode && (
+        <Helmet>
+          <style>{'@import "/style/antd.dark.css";'}</style>
+        </Helmet>
+      )}
+      {authStatus === 'authenticated' ? <App /> : <AuthPage {...{ theme, darkMode }} />}
+    </>
+  );
+};
+
 const App = (): JSX.Element => {
-  const { authStatus, user: cognitoUser, signOut } = useAuthenticator(context => [context.user]);
+  const { user: cognitoUser, signOut } = useAuthenticator(context => [context.user]);
 
   const [ready, setReady] = useState(false);
   const [users, setUsers] = useState<User[] | undefined>(undefined);
   const [transcripts, setTranscripts] = useState<Transcript[] | undefined>(undefined);
 
-  const [darkMode] = useAtom(darkModeAtom);
   const [debugMode, setDebug] = useAtom(debugModeAtom);
   useKonami(() => setDebug(!debugMode));
 
@@ -104,32 +119,21 @@ const App = (): JSX.Element => {
   }, [cognitoUser, ready]);
 
   return (
-    <>
-      {darkMode && (
-        <Helmet>
-          <style>{'@import "/style/antd.dark.css";'}</style>
-        </Helmet>
-      )}
-      {authStatus === 'authenticated' ? (
-        <Switch>
-          <Route path="/" exact>
-            <Home {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
-          </Route>
-          <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
-            <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
-          </Route>
-          <Route path="/preferences">
-            <Preferences />
-          </Route>
-          <Route path="*">
-            <NotFound />
-          </Route>
-        </Switch>
-      ) : (
-        <AuthPage {...{ theme, darkMode }} />
-      )}
-    </>
+    <Switch>
+      <Route path="/" exact>
+        <Home {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
+      </Route>
+      <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
+        <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
+      </Route>
+      <Route path="/preferences">
+        <Preferences />
+      </Route>
+      <Route path="*">
+        <NotFound />
+      </Route>
+    </Switch>
   );
 };
 
-export default App;
+export default AppWrapper;

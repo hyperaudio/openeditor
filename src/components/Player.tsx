@@ -4,7 +4,7 @@ import { useAtom } from 'jotai';
 import Draggable from 'react-draggable';
 import ReactPlayer from 'react-player';
 
-import { playerPositionAtom } from '../atoms';
+import { playerPositionAtom, darkModeAtom } from '../atoms';
 
 interface PlayerProps {
   audioKey: string | null;
@@ -18,6 +18,7 @@ const Player = forwardRef<ReactPlayer, PlayerProps>(
   ({ audioKey, playing, play, pause, setTime }: PlayerProps, ref): JSX.Element | null => {
     const audio = true;
 
+    const [darkMode] = useAtom(darkModeAtom);
     const [position, setPosition] = useAtom(playerPositionAtom);
     const [url, setUrl] = useState<string | null>(null);
 
@@ -63,34 +64,38 @@ const Player = forwardRef<ReactPlayer, PlayerProps>(
     const onProgress = useCallback(({ playedSeconds }: { playedSeconds: number }) => setTime(playedSeconds), [setTime]);
 
     return url ? (
-      <Draggable defaultPosition={position} onStop={handleDragStop}>
-        <div
-          style={{
-            width: '300px',
-            backgroundColor: audio ? 'transparent' : 'black',
-            padding: '4px',
-            boxShadow: '0 0 15px gray',
-            zIndex: 999,
-            aspectRatio: audio ? '16/3' : '16/9',
-          }}>
-          <ReactPlayer
-            controls
-            {...{ ref, url, config, playing, onDuration, onProgress }}
-            onPlay={play}
-            onPause={pause}
-            progressInterval={100}
-            width="100%"
-            height="100%"
-          />
-          <style>
-            {`
-          audio {
-            background-color: white;
-          }
-        `}
-          </style>
-        </div>
-      </Draggable>
+      <div style={{ position: 'fixed', top: 0, height: 0, zIndex: 999 }}>
+        <Draggable defaultPosition={position} onStop={handleDragStop} handle=".handle">
+          <div
+            className="handle"
+            style={{
+              width: '300px',
+              backgroundColor: audio && !darkMode ? 'white' : 'black',
+              padding: '6px',
+              zIndex: 999,
+              boxShadow: '0 0 15px gray',
+              aspectRatio: audio ? '16/3' : '16/9',
+              cursor: 'move',
+            }}>
+            <ReactPlayer
+              controls
+              {...{ ref, url, config, playing, onDuration, onProgress }}
+              onPlay={play}
+              onPause={pause}
+              progressInterval={100}
+              width="100%"
+              height="100%"
+            />
+          </div>
+        </Draggable>
+        <style scoped>
+          {`
+            audio {
+              background-color: ${darkMode ? 'black' : 'white'};
+            }
+          `}
+        </style>
+      </div>
     ) : null;
   },
 );

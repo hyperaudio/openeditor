@@ -1,9 +1,10 @@
 /* eslint-disable react/jsx-curly-brace-presence */
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { Avatar, Dropdown, Menu, Space, Switch } from 'antd';
 import { DownOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
+import hash from 'object-hash';
 
 import { User } from '../models';
 import { darkModeAtom } from '../atoms';
@@ -16,6 +17,7 @@ interface UserMenuProps {
 
 const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
   const [darkMode, setDarkMode] = useAtom(darkModeAtom);
+  const emailHash = useMemo(() => (user ? hash.MD5(user.email.trim().toLowerCase()) : null), [user]);
 
   const handleClick = useCallback(
     ({ key }: { key: string }) => {
@@ -69,7 +71,9 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
         />
       }>
       <div style={{ cursor: 'pointer' }}>
-        <Avatar>{user?.name.charAt(0).toUpperCase()}</Avatar>
+        <Avatar src={emailHash ? `https://www.gravatar.com/avatar/${emailHash}?d=404` : null}>
+          {user?.name.charAt(0).toUpperCase()}
+        </Avatar>
         <DownOutlined />
       </div>
     </Dropdown>

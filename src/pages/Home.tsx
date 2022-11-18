@@ -5,14 +5,16 @@ import { Link, useHistory } from 'react-router-dom';
 import { DataStore } from 'aws-amplify';
 import Moment from 'react-moment';
 import 'moment-timezone';
-import { Layout, Col, Row, PageHeader, Table, Typography, Drawer, BackTop, Button } from 'antd';
+import { Layout, Col, Row, PageHeader, Table, Typography, Drawer, BackTop, Button, Space, Divider } from 'antd';
+import UploadOutlined from '@ant-design/icons/UploadOutlined';
 import { ColumnsType } from 'antd/es/table';
 
 import { User, Transcript } from '../models';
 import StatusCard, { StatusTag, StatusBadge } from '../components/StatusCard';
 import DataCard from '../components/DataCard';
+import Footer from '../components/Footer';
 
-const { Header, Content, Footer } = Layout;
+const { Header, Content } = Layout;
 const { Text } = Typography;
 
 interface HomeProps {
@@ -28,7 +30,7 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
   const newTranscript = useCallback(async () => {
     const transcript = await DataStore.save(
       new Transcript({
-        title: 'test',
+        title: `New Transcript ${new Date().toLocaleString()}`,
         language: 'en-US',
         media: '{}',
         metadata: '{}',
@@ -153,7 +155,22 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
 
   return (
     <Layout>
-      <PageHeader title="OpenEditor" extra={userMenu} />
+      <PageHeader
+        title={
+          <>
+            <span>OpenEditor</span>{' '}
+          </>
+        }
+        extra={
+          <Space>
+            <Button type="primary" shape="round" icon={<UploadOutlined />} onClick={newTranscript}>
+              New Transcript
+            </Button>
+            <Divider />
+            {userMenu}
+          </Space>
+        }
+      />
       <Content>
         <Table dataSource={transcripts} columns={columns} size="middle" rowKey="id" pagination={false} sticky />
         <Drawer
@@ -167,20 +184,8 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
           ) : null}
         </Drawer>
         <DataCard objects={{ user, transcripts }} />
-        <Footer>
-          <small style={{ display: 'block', textAlign: 'center' }}>
-            All code open source,{' '}
-            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">
-              GNU AGPL Licensed
-            </a>{' '}
-            and available on{' '}
-            <a href="https://github.com/OpenEditor/openeditor" target="_blank" rel="noopener noreferrer">
-              github.com/OpenEditor
-            </a>{' '}
-            &copy;2019&#8211;{new Date().getFullYear()}{' '}
-          </small>
-          <Button onClick={newTranscript}>New Transcript</Button>
-        </Footer>
+        <Footer />
+
         <BackTop />
       </Content>
     </Layout>
