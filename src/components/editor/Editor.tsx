@@ -343,30 +343,23 @@ const SpeakerAutoComplete = ({
 
   const onSelect = useCallback(
     (key: string): void => {
-      console.log('onSelect', key);
       setSpeaker(speakers[key.trim()] ?? null);
       setValue(speakers[key.trim()].name);
-      // updateCurrentBlockSpeaker(key.trim());
     },
-    [speakers, updateCurrentBlockSpeaker],
+    [speakers],
   );
-
-  const [testValue, setTestValue] = useState<string>('');
 
   const onChange = useCallback(
     (key: string): void => {
       console.log('onChange', key);
       if (speakers[key.trim()]) {
-        console.log('onChange: set existing value', key);
         setSpeaker(speakers[key.trim()] ?? null);
         setValue(speakers[key.trim()].name);
-        // updateCurrentBlockSpeaker(key.trim());
       } else if (currentSpeaker?.default) {
         console.log('onChange: set existing value + replace', key);
         // replace/update speaker
         setSpeaker({ ...currentSpeaker, name: key.trim(), default: false });
         setValue(key);
-        // setSpeakers({ ...speakers, [speaker.id]: { ...speaker, name: key.trim(), default: false } });
       } else {
         // add speaker
         console.log('onChange: add speaker', key);
@@ -374,8 +367,6 @@ const SpeakerAutoComplete = ({
         const newSpeaker = { name: key.trim(), id, default: false };
         setSpeaker(newSpeaker);
         setValue(key);
-        // updateCurrentBlockSpeaker(id);
-        // setSpeakers({ ...speakers, [id]: newSpeaker });
       }
     },
     [speakers, currentSpeaker],
