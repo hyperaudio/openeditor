@@ -439,16 +439,16 @@ const convertTranscript = ({
       return [...acc, p, { start, end, text }];
     }, []);
 
-  const tstt = formatTranscript(items2, segments2);
+  const transcript2 = formatTranscript(items2, segments2);
 
   let speakers = [...new Set(segments2.map(({ speaker }) => speaker))].filter(s => !!s);
 
   speakers = speakers.reduce((acc, speaker) => {
-    const id = `S${nanoid(5)}`;
-    return { ...acc, [id]: { name: speaker } }; // editor adds id inside
+    const id = `S${nanoid(3)}`;
+    return { ...acc, [id]: { id, name: speaker, default: true } };
   }, {});
 
-  const blocks = tstt.map(block => {
+  const blocks = transcript2.map(block => {
     const items = block.data.items.map((item, i, arr) => {
       const offset = arr.slice(0, i).reduce((acc, { text }) => acc + text.length + 1, 0);
       return { ...item, offset, length: item.text.length };
