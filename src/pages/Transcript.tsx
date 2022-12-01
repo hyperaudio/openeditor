@@ -56,7 +56,6 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const [speakers, setSpeakers] = useState<{ [key: string]: any }>({});
   const [error, setError] = useState<Error>();
 
-  // TODO do not fetch unless the status has transcript
   useEffect(() => {
     if (step < 3) return;
 
@@ -89,7 +88,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const [savingProgress, setSavingProgress] = useState(0);
 
   // TODO window.onbeforeunload
-  // const unsavedChanges = useMemo(() => draft?.contentState !== saved?.contentState, [draft, saved]);
+  const unsavedChanges = useMemo(() => draft?.contentState !== saved?.contentState, [draft, saved]);
 
   const handleSave = useCallback(async () => {
     if (!user || !transcript || !draft) return;
@@ -125,6 +124,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
     setSaving(1);
 
     // TODO update updatedAt/updatedBy in metadata
+
     setTimeout(() => setSaving(0), 500);
     setSaved(draft);
   }, [speakers, draft, uuid, transcript, user]);

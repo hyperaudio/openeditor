@@ -1,10 +1,12 @@
+/* eslint-disable no-console */
 /* eslint-disable no-nested-ternary */
 /* eslint-disable react/jsx-props-no-spreading */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react/require-default-props */
-import React, { useMemo, useCallback, useReducer, useState, useRef, useEffect, SyntheticEvent } from 'react';
+import React, { useMemo, useCallback, useReducer, useState, useRef, useEffect, MutableRefObject } from 'react';
+import ReactDOM from 'react-dom';
 import {
   Editor as DraftEditor,
   EditorState,
@@ -12,24 +14,26 @@ import {
   Modifier,
   CompositeDecorator,
   convertToRaw,
-  // DraftBlockType,
   ContentBlock,
   RawDraftContentBlock,
 } from 'draft-js';
 import TC, { FRAMERATE } from 'smpte-timecode';
 import { alignSTTwithPadding } from '@bbc/stt-align-node';
-import bs58 from 'bs58';
+// import bs58 from 'bs58';
 import { useDebounce } from 'use-debounce';
 // import { intersection, arrayIntersection } from 'interval-operations';
 import UAParser from 'ua-parser-js';
 import { useAtom } from 'jotai';
+import { AutoComplete } from 'antd';
+// import RefAutoComplete from 'antd/lib/auto-complete';
+import { nanoid } from 'nanoid';
 
 import { darkModeAtom } from '../../atoms';
 
 import PlayheadDecorator from './PlayheadDecorator';
 import reducer from './reducer';
 
-// const filter = createFilterOptions();
+import type { BaseSelectRef } from 'rc-select';
 
 const SPEAKER_AREA_WIDTH = 120;
 const SPEAKER_AREA_HEIGHT = 26;
@@ -37,89 +41,6 @@ const PREFIX = 'Editor';
 const classes = {
   root: `${PREFIX}`,
 };
-
-// const STYLE = `
-//   div[data-block='true'] + div[data-block='true'] {
-//     margin-top: 24px;
-//   }
-
-//   div[data-block='true'] {
-//     padding-left: ${SPEAKER_AREA_WIDTH}px;
-//     position: relative;
-//     font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
-//     'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
-//     'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
-//     'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-//     font-size: 16px;
-//     font-weight: 400;
-//   }
-
-//   div[data-block='true'] .Playhead ~ span {
-//     color: #757575;
-//     font-weight: 400;
-//   }
-
-//   .focus-false div[data-block='true'] .Playhead ~ span {
-//     color: #757575;
-//     font-weight: 400;
-//   }
-
-//   .focus-false div[data-block='true'] .Playhead {
-//     color: blue;
-//     /* text-shadow: -0.03ex 0 0 blue, 0.03ex 0 0 blue, 0 -0.02ex 0 blue, 0 0.02ex 0 blue; */
-//     font-weight: 600;
-//     transition: all 0.2s;
-//   }
-
-//   div[data-block='true'][data-offset-key]::after, div[data-block='true'][data-offset-key]::before {
-//     position: absolute;
-//   }
-
-//   div[data-block='true'][data-offset-key]:hover {
-//     color: black;
-//     font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
-//     'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
-//     'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
-//     'Noto Color Emoji', 'Noto Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-//   }
-
-//   div[data-block='true'][data-offset-key]::before {
-//     background-image: url(data:image/svg+xml,${encodeURIComponent(
-//       `<svg width="7" height="${SPEAKER_AREA_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><text x="0" y="17.5" style="font-family: sans-serif; font-size: 12px; fill: darkblue;">▾</text></svg>`,
-//     )});
-//     background-position: 97% center;
-//     background-repeat: no-repeat;
-//     color: darkblue;
-//     cursor: pointer;
-//     font-size: 14px;
-//     font-weight: 500;
-//     height: ${SPEAKER_AREA_HEIGHT}px;
-//     left: 0;
-//     line-height: ${SPEAKER_AREA_HEIGHT}px;
-//     overflow: hidden;
-//     padding-right: 10px;
-//     text-overflow: ellipsis;
-//     top: 0;
-//     white-space: nowrap;
-//     width: ${SPEAKER_AREA_WIDTH - 10}px;
-//   }
-
-//   div[data-block='true'][data-offset-key]::after {
-//     bottom: 100%;
-//     color: darkblue;
-//     display: none;
-//     font-size: 12px;
-//     font-weight: 500;
-//     left: ${SPEAKER_AREA_WIDTH}px;
-//     line-height: 1;
-//     overflow: visible;
-//     pointer-events: none;
-//   }
-
-//   div[data-block='true'][data-offset-key]:hover::after {
-//     display: block;
-//   }
-//   `;
 
 interface EditorProps {
   initialState: EditorState;
@@ -172,17 +93,9 @@ const Editor = ({
   ...rest
 }: EditorProps): JSX.Element => {
   const [state, dispatch] = useReducer(reducer, initialState);
-  // const [speakers, setSpeakers] = useState(
-  //   Object.entries(initialSpeakers).reduce((acc, [id, speaker]) => {
-  //     return { ...acc, [id]: { ...speaker, id } };
-  //   }, {}),
-  // );
-
   const [wasPlaying, setWasPlaying] = useState(false);
   const [currentBlock, setCurrentBlock] = useState<ContentBlock | null>(null);
   const [speakerAnchor, setSpeakerAnchor] = useState<HTMLElement | null>(null);
-  const [speaker, setSpeaker] = useState<{ [key: string]: any } | null>(null);
-  const [speakerQuery, setSpeakerQuery] = useState('');
 
   const onChange = useCallback(
     (editorState: EditorState) => dispatch({ type: editorState.getLastChangeType(), editorState, aligner, dispatch }),
@@ -193,7 +106,7 @@ const Editor = ({
 
   useEffect(() => {
     if (readOnly) return;
-    console.log('onChangeProp');
+    // console.log('onChangeProp');
     onChangeProp({
       speakers,
       // eslint-disable-next-line arrow-body-style
@@ -234,7 +147,6 @@ const Editor = ({
       setTimeout(() => setFocused(true), 200);
 
       if (!editorState) return;
-      // console.log(e.target);
 
       const selectionState = editorState.getSelection();
       if (!selectionState.isCollapsed()) return;
@@ -260,11 +172,11 @@ const Editor = ({
           // eslint-disable-next-line no-unused-expressions
           pause && pause();
 
-          setSpeaker({ id: data.speaker, name: speakers?.[data.speaker]?.name });
           setSpeakerAnchor(target);
         }
       } else {
         setCurrentBlock(null);
+        setSpeakerAnchor(null);
 
         let key = selectionState.getAnchorKey();
         if (readOnly) {
@@ -285,94 +197,21 @@ const Editor = ({
         const items = block.getData().get('items');
         const item = items?.filter(({ offset = 0 }) => offset <= start)?.pop();
 
-        console.log('seekTo', item?.start);
+        // console.log('seekTo', item?.start);
         // eslint-disable-next-line no-unused-expressions
         item?.start && seekTo && seekTo(item.start);
       }
     },
-    [seekTo, editorState, readOnly, playing, pause, speakers],
+    [seekTo, editorState, readOnly, playing, pause],
   );
 
-  // const handleMouseMove = useCallback(
-  //   ({ target }) => {
-  //     if (readOnly) return;
-  //     console.log(target);
-  //     let parent = target;
-  //     if (parent.tagName === 'SPAN') parent = parent.parentElement;
-  //     if (parent.tagName === 'SPAN') parent = parent.parentElement;
-  //     if (parent.tagName !== 'DIV') return;
+  // const handleClickAway = useCallback(() => {
+  //   // eslint-disable-next-line no-extra-boolean-cast
+  //   if (Boolean(speakerAnchor)) setSpeakerAnchor(null);
+  //   setCurrentBlock(null);
 
-  //     const key = parent.getAttribute('data-offset-key')?.replace('-0-0', '');
-  //     const data = editorState.getCurrentContent().getBlockForKey(key)?.getData().toJS();
-  //     if (!data) return;
-
-  //     setActiveInterval && setActiveInterval([data.start, data.end]);
-  //   },
-  //   [editorState, setActiveInterval, readOnly],
-  // );
-
-  const handleSpeakerSet = useCallback(
-    (event: SyntheticEvent, newValue: string | { [key: string]: any }) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setSpeakerAnchor(null);
-      // eslint-disable-next-line no-unused-expressions
-      wasPlaying && play && play();
-
-      if (typeof newValue === 'string') {
-        // A: Create new by type-in and Enter press
-        // const id = `S${Date.now()}`;
-        const id = `S${bs58.encode(Buffer.from(newValue.trim()))}`;
-        setSpeakers({ ...speakers, [id]: { name: newValue.trim(), id } });
-        setSpeaker({ name: newValue.trim(), id });
-        console.log('TODO: handleSpeakerSet, NEW-a:', newValue, id);
-        dispatch({
-          type: 'change-speaker',
-          currentBlock,
-          speaker: id,
-          editorState,
-          aligner,
-          dispatch,
-        });
-      } else if (newValue && newValue.inputValue) {
-        // B: Create new by type-in and click on the `Add xyz` option
-        // const id = `S${Date.now()}`;
-        const id = `S${bs58.encode(Buffer.from(newValue.inputValue.trim()))}`;
-        setSpeakers({ ...speakers, [id]: { name: newValue.inputValue.trim(), id } });
-        setSpeaker({ name: newValue.inputValue.trim(), id });
-        console.log(`TODO: handleSpeakerSet, NEW-b:`, newValue.inputValue.trim(), id);
-        dispatch({
-          type: 'change-speaker',
-          currentBlock,
-          speaker: id,
-          editorState,
-          aligner,
-          dispatch,
-        });
-      } else {
-        // C: Choose an already existing speaker
-        setSpeaker(newValue);
-        console.log('TODO: handleSpeakerSet, EXISTING:', newValue);
-        dispatch({
-          type: 'change-speaker',
-          currentBlock,
-          speaker: newValue.id,
-          editorState,
-          aligner,
-          dispatch,
-        });
-      }
-    },
-    [speakers, currentBlock, editorState, aligner, wasPlaying, play, setSpeakers],
-  );
-
-  const handleClickAway = useCallback(() => {
-    // eslint-disable-next-line no-extra-boolean-cast
-    if (Boolean(speakerAnchor)) setSpeakerAnchor(null);
-    setCurrentBlock(null);
-
-    if (wasPlaying) play();
-  }, [speakerAnchor, wasPlaying, play]);
+  //   if (wasPlaying) play();
+  // }, [speakerAnchor, wasPlaying, play]);
 
   const handlePastedText = useCallback(
     (text: string) => {
@@ -423,27 +262,154 @@ const Editor = ({
     } else playhead?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [autoScroll, wrapper, time, focused, speakerAnchor, readOnly, editorState, engine]);
 
+  const { x, y } = useMemo(() => speakerAnchor?.getBoundingClientRect() ?? { x: 0, y: 0 }, [speakerAnchor]);
+
+  const updateCurrentBlockSpeaker = useCallback(
+    (id: string): void => {
+      dispatch({
+        type: 'change-speaker',
+        currentBlock,
+        speaker: id,
+        editorState,
+        aligner,
+        dispatch,
+      });
+    },
+    [aligner, currentBlock, editorState],
+  );
+
   return (
+    <>
+      {speakerAnchor && currentBlock ? (
+        <SpeakerAutoComplete
+          // key={currentBlock.getKey()}
+          {...{ x, y, speakers, currentBlock, setSpeakers, updateCurrentBlockSpeaker }}
+        />
+      ) : null}
+      <div className={`${classes.root} focus-${focused}`} onClick={handleClick} ref={wrapper}>
+        <DraftEditor
+          readOnly={readOnly || !!speakerAnchor}
+          {...{ editorState, onChange, onFocus, onBlur, ...rest }}
+          // handleDrop={() => true}
+          // handleDroppedFiles={() => true}
+          // handlePastedFiles={() => true}
+          handlePastedText={handlePastedText}
+        />
+        {editorState
+          .getCurrentContent()
+          .getBlocksAsArray()
+          .map((block: ContentBlock) => (
+            <BlockStyle key={block.getKey()} {...{ block, speakers, time }} />
+          ))}
+        <EditorStyleElement />
+      </div>
+    </>
+  );
+};
+
+const SpeakerAutoComplete = ({
+  x,
+  y,
+  currentBlock,
+  speakers,
+  setSpeakers,
+  updateCurrentBlockSpeaker,
+}: {
+  x: number;
+  y: number;
+  currentBlock: ContentBlock | null;
+  speakers: { [key: string]: any };
+  setSpeakers: (speakers: { [key: string]: any }) => void;
+  updateCurrentBlockSpeaker: (id: string) => void;
+}): JSX.Element => {
+  const portalElement = document.getElementById('portal1') as HTMLElement;
+  const ref = useRef<BaseSelectRef | null>() as MutableRefObject<BaseSelectRef>;
+  const currentSpeaker = useMemo(() => speakers[currentBlock?.getData().get('speaker')], [currentBlock, speakers]);
+  const speakerOptions = useMemo(
+    () =>
+      Object.entries(speakers).map(([value, { name: label }]: [string, { [key: string]: any }]) => ({ label, value })),
+    [speakers],
+  );
+
+  const [speaker, setSpeaker] = useState<{ [key: string]: any } | null>(currentSpeaker);
+  const [value, setValue] = useState<string>(currentSpeaker?.name ?? '');
+  const [options, setOptions] = useState<{ value: string }[]>(speakerOptions);
+
+  const onSearch = (searchText: string): void => {
+    setOptions(
+      !searchText ? [] : speakerOptions.filter(({ label }) => label.toLowerCase().includes(searchText.toLowerCase())),
+    );
+  };
+
+  const onSelect = useCallback(
+    (key: string): void => {
+      console.log('onSelect', key);
+      setSpeaker(speakers[key.trim()] ?? null);
+      setValue(speakers[key.trim()].name);
+      // updateCurrentBlockSpeaker(key.trim());
+    },
+    [speakers, updateCurrentBlockSpeaker],
+  );
+
+  const [testValue, setTestValue] = useState<string>('');
+
+  const onChange = useCallback(
+    (key: string): void => {
+      console.log('onChange', key);
+      if (speakers[key.trim()]) {
+        console.log('onChange: set existing value', key);
+        setSpeaker(speakers[key.trim()] ?? null);
+        setValue(speakers[key.trim()].name);
+        // updateCurrentBlockSpeaker(key.trim());
+      } else if (currentSpeaker?.default) {
+        console.log('onChange: set existing value + replace', key);
+        // replace/update speaker
+        setSpeaker({ ...currentSpeaker, name: key.trim(), default: false });
+        setValue(key);
+        // setSpeakers({ ...speakers, [speaker.id]: { ...speaker, name: key.trim(), default: false } });
+      } else {
+        // add speaker
+        console.log('onChange: add speaker', key);
+        const id = `S${nanoid(3)}`;
+        const newSpeaker = { name: key.trim(), id, default: false };
+        setSpeaker(newSpeaker);
+        setValue(key);
+        // updateCurrentBlockSpeaker(id);
+        // setSpeakers({ ...speakers, [id]: newSpeaker });
+      }
+    },
+    [speakers, currentSpeaker],
+  );
+
+  const onBlur = useCallback(() => {
+    setSpeakers({ ...speakers, [speaker?.id]: speaker });
+    if (speaker && currentSpeaker !== speaker.id) updateCurrentBlockSpeaker(speaker.id);
+  }, [setSpeakers, speakers, speaker, currentSpeaker, updateCurrentBlockSpeaker]);
+
+  return ReactDOM.createPortal(
     <div
-      className={`${classes.root} focus-${focused}`}
-      onClick={handleClick}
-      // onMouseMove={handleMouseMove}
-      ref={wrapper}>
-      <DraftEditor
-        {...{ editorState, onChange, onFocus, onBlur, readOnly, ...rest }}
-        // handleDrop={() => true}
-        // handleDroppedFiles={() => true}
-        // handlePastedFiles={() => true}
-        handlePastedText={handlePastedText}
+      style={{
+        position: 'absolute',
+        top: y + window.scrollY - 3,
+        left: x + window.scrollX - 12,
+        width: SPEAKER_AREA_WIDTH,
+        height: SPEAKER_AREA_HEIGHT,
+      }}>
+      <style>{`body { overflow-y: hidden; }`}</style>
+      <AutoComplete
+        autoFocus
+        ref={ref}
+        value={value}
+        options={options}
+        style={{ width: SPEAKER_AREA_WIDTH - 10 }}
+        onSelect={onSelect}
+        onSearch={onSearch}
+        onChange={onChange}
+        onBlur={onBlur}
+        placeholder="Speaker"
       />
-      {editorState
-        .getCurrentContent()
-        .getBlocksAsArray()
-        .map((block: ContentBlock) => (
-          <BlockStyle key={block.getKey()} {...{ block, speakers, time }} />
-        ))}
-      <EditorStyleElement />
-    </div>
+    </div>,
+    portalElement,
   );
 };
 
@@ -528,6 +494,15 @@ const EditorStyleElement = (): JSX.Element => {
     'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
     'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
     font-size: 16px;
+    font-weight: 400;
+  }
+
+  .ant-select-auto-complete input {
+    font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+    'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    font-size: 14px;
     font-weight: 400;
   }
 
