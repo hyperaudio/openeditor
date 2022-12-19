@@ -17,10 +17,12 @@ import {
   GetJobCommand,
 } from '@aws-sdk/client-mediaconvert';
 import { TranscribeClient, StartTranscriptionJobCommand } from '@aws-sdk/client-transcribe';
-import { S3, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3, S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { default as fetch, Request } from 'node-fetch';
 import { nanoid } from 'nanoid';
 import pako from 'pako';
+import ffprobe from 'ffprobe';
 
 const { Sha256 } = crypto;
 
@@ -130,8 +132,10 @@ export const handler = async function (event) {
   const key = event.Records[0].s3.object.key;
 
   // UPLOAD
-  if (key.startsWith('public/uploads/')) {
+  // TODO check for media type extensions?
+  if (key.startsWith('public/uploads/') && !key.endsWith('.json')) {
     const [, uuid] = key.split('/').reverse();
+    const folder = key.split('/').slice(0, -1).join('/');
 
     const {
       data: { getTranscript: transcript },
@@ -143,6 +147,25 @@ export const handler = async function (event) {
     const uploadIndex = status.steps.findIndex(step => step.type === 'upload');
     if (!status.steps[uploadIndex].data) status.steps[uploadIndex].data = {};
     status.steps[uploadIndex].data.s3 = event.Records[0].s3.object;
+
+    // FFPROBE
+    let isVideo = false;
+    try {
+      const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+      const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+
+      const probe = await ffprobe(url, { path: '/opt/ffprobe' });
+      status.steps[uploadIndex].data.ffprobe = probe;
+
+      isVideo = probe.streams.some(stream => stream.codec_type === 'video');
+
+      await s3.putObject({
+        Bucket: bucket,
+        Key: `${folder}/${uuid}-ffprobe.json`,
+        Body: Buffer.from(JSON.stringify(probe)),
+        ContentType: 'application/json',
+      });
+    } catch (ignored) {}
 
     // TRANSCODE
     const transcodeIndex = status.steps.findIndex(step => step.type === 'transcode');
@@ -158,11 +181,13 @@ export const handler = async function (event) {
         endpoint: describeEndpointsCommandOutput.Endpoints[0].Url,
         region: REGION,
       });
-      const createJobCommand = new CreateJobCommand({
+
+      const job = {
         Role: MEDIACONVERT_ROLE,
         Settings: {
           OutputGroups: [
             {
+              CustomName: 'Audio',
               Name: 'File Group',
               Outputs: [
                 {
@@ -195,13 +220,57 @@ export const handler = async function (event) {
                     },
                   ],
                   Extension: 'm4a',
-                  NameModifier: '-transcoded',
+                  NameModifier: '-transcoded', // TODO we might not need it
                 },
               ],
               OutputGroupSettings: {
                 Type: 'FILE_GROUP_SETTINGS',
                 FileGroupSettings: {
                   Destination: `s3://${bucket}/public/media/audio/${uuid}/`,
+                },
+              },
+            },
+            {
+              CustomName: 'HLS',
+              Name: 'Apple HLS',
+              Outputs: [
+                {
+                  ContainerSettings: {
+                    Container: 'M3U8',
+                    M3u8Settings: {},
+                  },
+                  AudioDescriptions: [
+                    {
+                      AudioSourceName: 'Audio Selector 1',
+                      CodecSettings: {
+                        Codec: 'AAC',
+                        AacSettings: {
+                          Bitrate: 96000,
+                          RateControlMode: 'CBR',
+                          CodingMode: 'CODING_MODE_2_0',
+                          SampleRate: 48000,
+                        },
+                      },
+                    },
+                  ],
+                  OutputSettings: {
+                    HlsSettings: {},
+                  },
+                  NameModifier: '-audio',
+                },
+              ],
+              OutputGroupSettings: {
+                Type: 'HLS_GROUP_SETTINGS',
+                HlsGroupSettings: {
+                  SegmentLength: 10,
+                  Destination: `s3://${bucket}/public/media/hls/${uuid}/`,
+                  MinSegmentLength: 0,
+                  DirectoryStructure: 'SINGLE_DIRECTORY',
+                },
+              },
+              AutomatedEncodingSettings: {
+                AbrSettings: {
+                  MaxRenditions: 3,
                 },
               },
             },
@@ -216,19 +285,79 @@ export const handler = async function (event) {
                   ProgramSelection: 1,
                 },
               },
+              VideoSelector: {},
               FilterEnable: 'AUTO',
               PsiControl: 'USE_PSI',
               FilterStrength: 0,
               DeblockFilter: 'DISABLED',
               DenoiseFilter: 'DISABLED',
-              TimecodeSource: 'EMBEDDED',
+              TimecodeSource: 'ZEROBASED',
               FileInput: `s3://${bucket}/${key}`,
             },
           ],
         },
+      };
+
+      if (isVideo)
+        job.Settings.OutputGroups[1].Outputs.splice(0, 0, {
+          ContainerSettings: {
+            Container: 'M3U8',
+            M3u8Settings: {},
+          },
+          VideoDescription: {
+            Width: 1920,
+            Height: 1080,
+            VideoPreprocessors: {
+              TimecodeBurnin: {},
+            },
+            TimecodeInsertion: 'PIC_TIMING_SEI',
+            CodecSettings: {
+              Codec: 'H_264',
+              H264Settings: {
+                FramerateControl: 'INITIALIZE_FROM_SOURCE',
+                RateControlMode: 'QVBR',
+                SceneChangeDetect: 'TRANSITION_DETECTION',
+                QualityTuningLevel: 'MULTI_PASS_HQ',
+              },
+            },
+          },
+          AudioDescriptions: [
+            {
+              AudioSourceName: 'Audio Selector 1',
+              CodecSettings: {
+                Codec: 'AAC',
+                AacSettings: {
+                  Bitrate: 96000,
+                  RateControlMode: 'CBR',
+                  CodingMode: 'CODING_MODE_2_0',
+                  SampleRate: 48000,
+                },
+              },
+            },
+          ],
+          OutputSettings: {
+            HlsSettings: {},
+          },
+          NameModifier: '-video',
+        });
+
+      await s3.putObject({
+        Bucket: bucket,
+        Key: `${folder}/${uuid}-transcode-input.json`,
+        Body: Buffer.from(JSON.stringify(job)),
+        ContentType: 'application/json',
       });
+
+      const createJobCommand = new CreateJobCommand(job);
       const createJobCommandOutput = await mediaConvertClient.send(createJobCommand);
-      console.log(createJobCommandOutput);
+      // console.log(createJobCommandOutput);
+      await s3.putObject({
+        Bucket: bucket,
+        Key: `${folder}/${uuid}-transcode-output.json`,
+        Body: Buffer.from(JSON.stringify(createJobCommandOutput)),
+        ContentType: 'application/json',
+      });
+
       //
       // const getJobCommand = new GetJobCommand({ Id: createJobCommandOutput.Job.Id });
       // const getJobCommandOutput = await mediaConvertClient.send(getJobCommand);
@@ -256,6 +385,37 @@ export const handler = async function (event) {
         },
       },
     });
+  } else if (key.startsWith('public/media/hls/') && key.endsWith('.m3u8')) {
+    // HLS
+    const [, uuid] = key.split('/').reverse();
+
+    const {
+      data: { getTranscript: transcript },
+    } = await graphqlRequest({ query: transcriptQuery, variables: { uuid } });
+
+    const status = JSON.parse(transcript.status);
+    const media = JSON.parse(transcript.media);
+
+    // Media
+    if (key.match(/-audio/)) {
+      media.audio = { ...media.audio, hls: key };
+    }
+    if (key.match(/-video/)) {
+      media.video = { ...media.video, hls: key };
+    }
+    // media.hls = { ...media.hls, hls: key };
+
+    // UPDATE status
+    // const mutation = await graphqlRequest({
+    //   query: transcriptMutation,
+    //   variables: {
+    //     input: {
+    //       id: uuid,
+    //       media: JSON.stringify(media),
+    //       _version: transcript._version,
+    //     },
+    //   },
+    // });
   } else if (key.startsWith('public/media/audio/') && key.endsWith('.m4a')) {
     const [, uuid] = key.split('/').reverse();
 
@@ -273,7 +433,7 @@ export const handler = async function (event) {
     status.steps[transcodeIndex].data.audio = { key };
 
     // Media
-    media.audio = { key };
+    media.audio = { ...media.audio, key };
 
     // TRANSCRIBE
     const transcribeIndex = status.steps.findIndex(step => step.type === 'transcribe');

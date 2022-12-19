@@ -18,6 +18,10 @@
     "apiOpenEditorGraphQLAPIEndpointOutput": {
       "Type": "String",
       "Default": "apiOpenEditorGraphQLAPIEndpointOutput"
+    },
+    "functionopeneditorlayerffprobeArn": {
+      "Type": "String",
+      "Default": "functionopeneditorlayerffprobeArn"
     }
   },
   "Conditions": {
@@ -102,7 +106,12 @@
           "S3Key": {
             "Ref": "s3Key"
           }
-        }
+        },
+        "Layers": [
+          {
+            "Ref": "functionopeneditorlayerffprobeArn"
+          }
+        ]
       }
     },
     "LambdaExecutionRole": {

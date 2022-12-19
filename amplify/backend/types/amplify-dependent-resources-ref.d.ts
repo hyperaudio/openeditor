@@ -26,6 +26,9 @@ export type AmplifyDependentResourcesAttributes = {
             "Arn": "string",
             "Region": "string",
             "LambdaExecutionRole": "string"
+        },
+        "openeditorlayerffprobe": {
+            "Arn": "string"
         }
     },
     "api": {

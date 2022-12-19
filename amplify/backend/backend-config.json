@@ -62,6 +62,13 @@
       "build": true,
       "dependsOn": [
         {
+          "category": "function",
+          "resourceName": "openeditorlayerffprobe",
+          "attributes": [
+            "Arn"
+          ]
+        },
+        {
           "category": "api",
           "resourceName": "OpenEditor",
           "attributes": [
@@ -70,6 +77,11 @@
           ]
         }
       ]
+    },
+    "openeditorlayerffprobe": {
+      "providerPlugin": "awscloudformation",
+      "service": "LambdaLayer",
+      "build": true
     }
   },
   "api": {
