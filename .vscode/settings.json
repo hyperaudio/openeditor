@@ -20,10 +20,12 @@
     "awsmobile",
     "Bitstream",
     "browserslist",
+    "Burnin",
     "Cslg",
     "Deblock",
     "Denoise",
     "Draftjs",
+    "ffprobe",
     "Konami",
     "Moov",
     "nodownload",
@@ -31,6 +33,8 @@
     "openeditorstorage",
     "pako",
     "playhead",
+    "presigner",
+    "QVBR",
     "SFNS",
     "signout",
     "smpte",
@@ -41,6 +45,7 @@
     "Twith",
     "USERPOOL",
     "uuidv",
-    "webfonts"
+    "webfonts",
+    "ZEROBASED"
   ]
 }

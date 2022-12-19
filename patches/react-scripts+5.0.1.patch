@@ -1,0 +1,17 @@
+diff --git a/node_modules/react-scripts/config/webpack.config.js b/node_modules/react-scripts/config/webpack.config.js
+index e465d8e..9f8d389 100644
+--- a/node_modules/react-scripts/config/webpack.config.js
++++ b/node_modules/react-scripts/config/webpack.config.js
+@@ -345,6 +345,12 @@ module.exports = function (webpackEnv) {
+           babelRuntimeRegenerator,
+         ]),
+       ],
++      fallback: {
++        'path': require.resolve('path-browserify'),
++        'fs': require.resolve('browserify-fs'),
++        'util': require.resolve('util'),
++        'stream': require.resolve('stream-browserify'),
++      },
+     },
+     module: {
+       strictExportPresence: true,
