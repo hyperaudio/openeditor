@@ -129,6 +129,14 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
     setSaved(draft);
   }, [speakers, draft, uuid, transcript, user]);
 
+  const [exportDrawerVisible, setExportDrawerVisible] = useState(false);
+  const openExportDrawer = useCallback(() => setExportDrawerVisible(true), []);
+  const closeExportDrawer = useCallback(() => setExportDrawerVisible(false), []);
+
+  const handleExport = useCallback(async () => {
+    // TODO export
+  }, []);
+
   const ref = useRef<ReactPlayer | null>() as MutableRefObject<ReactPlayer>;
   const [time, setTime] = useState(0);
 
@@ -166,7 +174,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
               onClick={handleSave}>
               {saving === 0 ? `Save` : `Saving ${savingProgress}%`}
             </Button>
-            <Button shape="round" disabled={true || step !== 3 || !draft} icon={<ExportOutlined />}>
+            <Button shape="round" disabled={step !== 3 || !draft} icon={<ExportOutlined />} onClick={openExportDrawer}>
               Export
             </Button>
             <Divider type="vertical" />
@@ -211,6 +219,15 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         closable={!(step < 3)}
         width={600}>
         {transcript ? <StatusCard transcript={transcript} user={user} groups={groups} /> : null}
+      </Drawer>
+      <Drawer
+        destroyOnClose
+        title="Export"
+        placement="right"
+        onClose={closeExportDrawer}
+        visible={exportDrawerVisible}
+        width={600}>
+        <p>TODO export card</p>
       </Drawer>
       <DataCard objects={{ transcript }} />
     </Layout>
