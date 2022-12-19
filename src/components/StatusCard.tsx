@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { RcFile } from 'antd/lib/upload';
 import mime from 'mime/lite';
+import MediaInfo, { Result } from 'mediainfo.js';
 
 import { User, Transcript } from '../models';
 import languages from '../data/aws-transcribe-languages.json';
@@ -195,6 +196,7 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
 
       const { name, type, size } = file as RcFile;
       // FIXME: limit on type and size?
+      // fileInfo(file as RcFile);
 
       await updateStatus({ step: 0, status: 'process', progress: 0, title: name });
       // await updateTitle(name);
@@ -497,5 +499,34 @@ const status2icon = {
   error: <CloseCircleOutlined />,
   default: <MinusCircleOutlined />,
 };
+
+// https://github.com/facebook/create-react-app/issues/11756#issuecomment-1002637667
+// const fileInfo = (file: RcFile): Promise<Result> =>
+//   new Promise((resolve, reject) => {
+//     MediaInfo({ format: 'object' }).then(mediaInfo => {
+//       const getSize = (): number => file.size;
+
+//       console.log({ mediaInfo });
+
+//       const readChunk = (chunkSize: number, offset: number): Promise<Uint8Array> | Uint8Array =>
+//         new Promise((resolve, reject) => {
+//           const reader = new FileReader();
+//           reader.onload = (event: ProgressEvent<FileReader>) => {
+//             if (event?.target?.error) {
+//               reject(event.target.error);
+//             }
+//             resolve(new Uint8Array(event?.target?.result as ArrayBuffer));
+//           };
+//           reader.readAsArrayBuffer(file.slice(offset, offset + chunkSize));
+//         });
+
+//       (mediaInfo.analyzeData(getSize, readChunk) as Promise<Result>)
+//         .then(result => {
+//           console.log({ result });
+//           resolve(result);
+//         })
+//         .catch(err => reject(err));
+//     });
+//   });
 
 export default StatusCard;
