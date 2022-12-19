@@ -282,13 +282,14 @@ const Editor = ({
     <>
       {speakerAnchor && currentBlock ? (
         <SpeakerAutoComplete
-          // key={currentBlock.getKey()}
+          key={currentBlock.getKey()}
           {...{ x, y, speakers, currentBlock, setSpeakers, updateCurrentBlockSpeaker }}
         />
       ) : null}
       <div className={`${classes.root} focus-${focused}`} onClick={handleClick} ref={wrapper}>
         <DraftEditor
-          readOnly={readOnly || !!speakerAnchor}
+          // readOnly={readOnly || !!speakerAnchor}
+          readOnly={readOnly}
           {...{ editorState, onChange, onFocus, onBlur, ...rest }}
           // handleDrop={() => true}
           // handleDroppedFiles={() => true}
@@ -337,7 +338,9 @@ const SpeakerAutoComplete = ({
 
   const onSearch = (searchText: string): void => {
     setOptions(
-      !searchText ? [] : speakerOptions.filter(({ label }) => label.toLowerCase().includes(searchText.toLowerCase())),
+      !searchText
+        ? speakerOptions
+        : [...speakerOptions.filter(({ label }) => label.toLowerCase().includes(searchText.toLowerCase()))],
     );
   };
 
@@ -486,6 +489,7 @@ const EditorStyleElement = (): JSX.Element => {
     'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
     font-size: 16px;
     font-weight: 400;
+    caret-color: #177ddc;
   }
 
   .ant-select-auto-complete input {
@@ -497,8 +501,12 @@ const EditorStyleElement = (): JSX.Element => {
     font-weight: 400;
   }
 
+  .ant-select-auto-complete {
+    background-color: ${darkMode ? 'black' : 'white'};
+  }
+
   div[data-block='true'] .Playhead ~ span {
-    color: #757575;
+    color: ${darkMode ? 'white' : 'black'};
     font-weight: 400;
   }
 
@@ -509,7 +517,6 @@ const EditorStyleElement = (): JSX.Element => {
 
   .focus-false div[data-block='true'] .Playhead {
     color: #177ddc;
-    /* text-shadow: -0.03ex 0 0 blue, 0.03ex 0 0 blue, 0 -0.02ex 0 blue, 0 0.02ex 0 blue; */
     font-weight: 600;
     transition: all 0.2s;
   }
