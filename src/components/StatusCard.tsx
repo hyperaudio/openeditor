@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, Ref } from 'r
 import { DataStore, Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import { v4 as uuidv4 } from 'uuid';
-import { Card, Tag, Badge, Tooltip, Steps, Button, Upload, Select, message } from 'antd';
+import { Card, Tag, Badge, Tooltip, Steps, Button, Upload, Select, message, Space, Popconfirm, Input } from 'antd';
 import {
   UploadOutlined,
   LoadingOutlined,
@@ -112,6 +112,8 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
   const [status, setStatus] = useState<'wait' | 'process' | 'finish' | 'error' | undefined>('wait');
   const [progress, setProgress] = useState(0);
   const fileList = useRef<UploadFile[]>([]);
+  const [url, setUrl] = useState<string>('');
+  const [validUrl, setValidUrl] = useState<boolean>(false);
 
   const uuid = transcript.id;
 
@@ -190,6 +192,18 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
   //   [uuid],
   // );
 
+  const handleUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value: inputValue } = e.target;
+    setUrl(inputValue);
+    try {
+      const { protocol } = new URL(inputValue);
+      if (protocol !== 'https:' && protocol !== 'http:') throw new Error('Invalid protocol');
+      setValidUrl(true);
+    } catch (error) {
+      setValidUrl(false);
+    }
+  }, []);
+
   const handleUpload = useCallback(
     async ({ file, onError, onSuccess, onProgress, filename, data }: UploadRequestOption) => {
       setStatus('process');
@@ -231,12 +245,20 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
 
       setStatus('finish');
       setProgress(0);
-      updateStatus({ step: 0, status: 'finish', progress: 100, data: { key } });
+      updateStatus({ step: 0, status: 'finish', progress: 100, data: { key, url: data?.url } });
 
       if (onSuccess) onSuccess(null);
     },
     [user, uuid, setProgress, setStatus, updateStatus],
   );
+
+  const handleUrlImport = useCallback(() => {
+    const { pathname } = new URL(url);
+    const fileName = pathname.split('/').pop() ?? '';
+    const file = new File([url], `${fileName}.url`, { type: mime.getType(fileName) ?? 'application/octet-stream' });
+    console.log({ file, fileName, pathname, url });
+    handleUpload({ file, filename: url, data: { url }, action: 'url', method: 'POST' });
+  }, [url, handleUpload]);
 
   const handleRemove = useCallback((file: UploadFile) => {
     console.log('remove', file);
@@ -306,29 +328,57 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
         </>
       }>
       <Steps current={step} direction="vertical" percent={progress} status={status}>
-        {steps.map(({ type, status, title = {}, description }, index) =>
+        {steps.map(({ type, status, title = {}, description, data = { url: null } }, index) =>
           type === 'upload' ? (
             <Step
               key={type}
               title={getTitle({ type, status, title })}
               description={
-                <Upload
-                  fileList={fileList.current}
-                  showUploadList={{ showRemoveIcon: false, showDownloadIcon: true }}
-                  maxCount={1}
-                  customRequest={handleUpload}
-                  onRemove={handleRemove}
-                  onChange={handleUploadChange}
-                  onDownload={handleDownload}>
-                  {fileList.current.length === 0 && (
-                    <Button
-                      type="primary"
-                      icon={<UploadOutlined />}
-                      disabled={step !== index || status === 'process' || status === 'finish'}>
-                      Upload
-                    </Button>
-                  )}
-                </Upload>
+                <>
+                  <Upload
+                    fileList={fileList.current}
+                    showUploadList={{ showRemoveIcon: false, showDownloadIcon: true }}
+                    maxCount={1}
+                    customRequest={handleUpload}
+                    onRemove={handleRemove}
+                    onChange={handleUploadChange}
+                    onDownload={handleDownload}>
+                    {fileList.current.length === 0 && !data?.url && (
+                      <Button
+                        type="primary"
+                        icon={<UploadOutlined />}
+                        disabled={step !== index || status === 'process' || status === 'finish'}>
+                        Upload
+                      </Button>
+                    )}
+                  </Upload>
+                  {fileList.current.length === 0 && !data?.url ? (
+                    <>
+                      <p style={{ marginTop: 12 }}>or import URL:</p>
+                      <Input.Group compact>
+                        <Input
+                          style={{ width: 'calc(100% - 200px)' }}
+                          value={url}
+                          status={validUrl || url === '' ? '' : 'error'}
+                          onChange={handleUrlChange}
+                          disabled={step !== index || status === 'process' || status === 'finish'}
+                        />
+                        <Button
+                          type="primary"
+                          disabled={!validUrl || step !== index || status === 'process' || status === 'finish'}
+                          onClick={handleUrlImport}>
+                          Import
+                        </Button>
+                      </Input.Group>
+                    </>
+                  ) : data.url ? (
+                    <p style={{ overflowWrap: 'break-word', wordBreak: 'break-all' }}>
+                      <a href={data.url} target="_blank" rel="noreferrer">
+                        {data.url}
+                      </a>
+                    </p>
+                  ) : null}
+                </>
               }
             />
           ) : type === 'transcode' ? (
