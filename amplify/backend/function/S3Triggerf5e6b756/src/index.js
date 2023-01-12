@@ -137,6 +137,16 @@ export const handler = async function (event) {
     const [, uuid] = key.split('/').reverse();
     const folder = key.split('/').slice(0, -1).join('/');
 
+    let remoteUrl;
+    if (key.endsWith('.url')) {
+      const { Body: stream } = await s3.getObject({
+        Bucket: bucket,
+        Key: key,
+      });
+
+      remoteUrl = await consumers.text(stream);
+    }
+
     const {
       data: { getTranscript: transcript },
     } = await graphqlRequest({ query: transcriptQuery, variables: { uuid } });
@@ -152,7 +162,7 @@ export const handler = async function (event) {
     let isVideo = false;
     try {
       const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-      const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+      const url = remoteUrl ?? (await getSignedUrl(s3, command, { expiresIn: 3600 }));
 
       const probe = await ffprobe(url, { path: '/opt/ffprobe' });
       status.steps[uploadIndex].data.ffprobe = probe;
@@ -182,7 +192,7 @@ export const handler = async function (event) {
         region: REGION,
       });
 
-      const job = {
+      const jobM4A = {
         Role: MEDIACONVERT_ROLE,
         Settings: {
           OutputGroups: [
@@ -230,6 +240,33 @@ export const handler = async function (event) {
                 },
               },
             },
+          ],
+          AdAvailOffset: 0,
+          Inputs: [
+            {
+              AudioSelectors: {
+                'Audio Selector 1': {
+                  Offset: 0,
+                  DefaultSelection: 'DEFAULT',
+                  ProgramSelection: 1,
+                },
+              },
+              FilterEnable: 'AUTO',
+              PsiControl: 'USE_PSI',
+              FilterStrength: 0,
+              DeblockFilter: 'DISABLED',
+              DenoiseFilter: 'DISABLED',
+              TimecodeSource: 'ZEROBASED', // TODO EMBEDDED if ffprobe?
+              FileInput: remoteUrl ?? `s3://${bucket}/${key}`,
+            },
+          ],
+        },
+      };
+
+      const jobHLS = {
+        Role: MEDIACONVERT_ROLE,
+        Settings: {
+          OutputGroups: [
             {
               CustomName: 'HLS',
               Name: 'Apple HLS',
@@ -291,15 +328,15 @@ export const handler = async function (event) {
               FilterStrength: 0,
               DeblockFilter: 'DISABLED',
               DenoiseFilter: 'DISABLED',
-              TimecodeSource: 'ZEROBASED',
-              FileInput: `s3://${bucket}/${key}`,
+              TimecodeSource: 'ZEROBASED', // TODO EMBEDDED if ffprobe?
+              FileInput: remoteUrl ?? `s3://${bucket}/${key}`,
             },
           ],
         },
       };
 
       if (isVideo)
-        job.Settings.OutputGroups[1].Outputs.splice(0, 0, {
+        jobHLS.Settings.OutputGroups[0].Outputs.splice(0, 0, {
           ContainerSettings: {
             Container: 'M3U8',
             M3u8Settings: {},
@@ -344,16 +381,16 @@ export const handler = async function (event) {
       await s3.putObject({
         Bucket: bucket,
         Key: `${folder}/${uuid}-transcode-input.json`,
-        Body: Buffer.from(JSON.stringify(job)),
+        Body: Buffer.from(JSON.stringify({ jobM4A, jobHLS: null })),
         ContentType: 'application/json',
       });
 
-      const createJobCommand = new CreateJobCommand(job);
+      const createJobCommand = new CreateJobCommand(jobM4A);
       const createJobCommandOutput = await mediaConvertClient.send(createJobCommand);
       // console.log(createJobCommandOutput);
       await s3.putObject({
         Bucket: bucket,
-        Key: `${folder}/${uuid}-transcode-output.json`,
+        Key: `${folder}/${uuid}-transcode-output-m4a.json`,
         Body: Buffer.from(JSON.stringify(createJobCommandOutput)),
         ContentType: 'application/json',
       });
@@ -365,8 +402,22 @@ export const handler = async function (event) {
       //
 
       // TRANSCODE status
+      status.steps[transcodeIndex].data.isVideo = isVideo;
       status.steps[transcodeIndex].status = 'process';
-      status.steps[transcodeIndex].data.job = createJobCommandOutput.Job;
+      status.steps[transcodeIndex].data.jobs = [createJobCommandOutput.Job];
+
+      try {
+        const createJobCommand2 = new CreateJobCommand(jobHLS);
+        const createJobCommandOutput2 = await mediaConvertClient.send(createJobCommand2);
+        status.steps[transcodeIndex].data.jobs.push(createJobCommandOutput2.Job);
+
+        await s3.putObject({
+          Bucket: bucket,
+          Key: `${folder}/${uuid}-transcode-output-hls.json`,
+          Body: Buffer.from(JSON.stringify(createJobCommandOutput2)),
+          ContentType: 'application/json',
+        });
+      } catch (ignored) {}
     } catch (error) {
       console.log(error);
       // TRANSCODE error status
