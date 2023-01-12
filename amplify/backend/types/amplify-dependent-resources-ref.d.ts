@@ -1,62 +1,64 @@
 export type AmplifyDependentResourcesAttributes = {
-    "auth": {
-        "OpenEditor": {
-            "IdentityPoolId": "string",
-            "IdentityPoolName": "string",
-            "UserPoolId": "string",
-            "UserPoolArn": "string",
-            "UserPoolName": "string",
-            "AppClientIDWeb": "string",
-            "AppClientID": "string"
-        },
-        "userPoolGroups": {
-            "AdminsGroupRole": "string",
-            "EditorsGroupRole": "string"
-        }
+  "api": {
+    "AdminQueries": {
+      "ApiId": "string",
+      "ApiName": "string",
+      "RootUrl": "string"
     },
-    "function": {
-        "AdminQueries474e476b": {
-            "Name": "string",
-            "Arn": "string",
-            "Region": "string",
-            "LambdaExecutionRole": "string"
-        },
-        "S3Triggerf5e6b756": {
-            "Name": "string",
-            "Arn": "string",
-            "Region": "string",
-            "LambdaExecutionRole": "string"
-        },
-        "openeditorlayerffprobe": {
-            "Arn": "string"
-        }
-    },
-    "api": {
-        "AdminQueries": {
-            "RootUrl": "string",
-            "ApiName": "string",
-            "ApiId": "string"
-        },
-        "OpenEditor": {
-            "GraphQLAPIIdOutput": "string",
-            "GraphQLAPIEndpointOutput": "string"
-        }
-    },
-    "storage": {
-        "s3storage": {
-            "BucketName": "string",
-            "Region": "string"
-        }
-    },
-    "predictions": {
-        "transcription": {
-            "region": "string",
-            "language": "string"
-        },
-        "translation": {
-            "region": "string",
-            "sourceLang": "string",
-            "targetLang": "string"
-        }
+    "OpenEditor": {
+      "GraphQLAPIEndpointOutput": "string",
+      "GraphQLAPIIdOutput": "string"
     }
+  },
+  "auth": {
+    "OpenEditor": {
+      "AppClientID": "string",
+      "AppClientIDWeb": "string",
+      "IdentityPoolId": "string",
+      "IdentityPoolName": "string",
+      "UserPoolArn": "string",
+      "UserPoolId": "string",
+      "UserPoolName": "string"
+    },
+    "userPoolGroups": {
+      "AdminsGroupRole": "string",
+      "EditorsGroupRole": "string"
+    }
+  },
+  "function": {
+    "AdminQueries474e476b": {
+      "Arn": "string",
+      "LambdaExecutionRole": "string",
+      "LambdaExecutionRoleArn": "string",
+      "Name": "string",
+      "Region": "string"
+    },
+    "S3Triggerf5e6b756": {
+      "Arn": "string",
+      "LambdaExecutionRole": "string",
+      "LambdaExecutionRoleArn": "string",
+      "Name": "string",
+      "Region": "string"
+    },
+    "openeditorlayerffprobe": {
+      "Arn": "string"
+    }
+  },
+  "predictions": {
+    "transcription": {
+      "language": "string",
+      "region": "string"
+    },
+    "translation": {
+      "region": "string",
+      "sourceLang": "string",
+      "targetLang": "string"
+    }
+  },
+  "storage": {
+    "s3storage": {
+      "BucketName": "string",
+      "Region": "string"
+    }
+  }
 }

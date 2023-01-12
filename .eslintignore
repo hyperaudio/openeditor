@@ -9,3 +9,5 @@ src/aws-exports.js
 src/models
 scripts/
 amplify/
+
+amplify-codegen-temp/models

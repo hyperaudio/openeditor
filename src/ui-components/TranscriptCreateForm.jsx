@@ -6,9 +6,6 @@
 
 /* eslint-disable */
 import * as React from "react";
-import { fetchByPath, validateField } from "./utils";
-import { Transcript } from "../models";
-import { getOverrideProps } from "@aws-amplify/ui-react/internal";
 import {
   Button,
   Flex,
@@ -16,6 +13,9 @@ import {
   TextAreaField,
   TextField,
 } from "@aws-amplify/ui-react";
+import { getOverrideProps } from "@aws-amplify/ui-react/internal";
+import { Transcript } from "../models";
+import { fetchByPath, validateField } from "./utils";
 import { DataStore } from "aws-amplify";
 export default function TranscriptCreateForm(props) {
   const {
@@ -23,32 +23,25 @@ export default function TranscriptCreateForm(props) {
     onSuccess,
     onError,
     onSubmit,
-    onCancel,
     onValidate,
     onChange,
     overrides,
     ...rest
   } = props;
   const initialValues = {
-    parent: undefined,
-    title: undefined,
-    language: undefined,
-    media: undefined,
-    status: undefined,
-    metadata: undefined,
+    parent: "",
+    title: "",
+    language: "",
+    media: "",
+    status: "",
+    metadata: "",
   };
   const [parent, setParent] = React.useState(initialValues.parent);
   const [title, setTitle] = React.useState(initialValues.title);
   const [language, setLanguage] = React.useState(initialValues.language);
-  const [media, setMedia] = React.useState(
-    initialValues.media ? JSON.stringify(initialValues.media) : undefined
-  );
-  const [status, setStatus] = React.useState(
-    initialValues.status ? JSON.stringify(initialValues.status) : undefined
-  );
-  const [metadata, setMetadata] = React.useState(
-    initialValues.metadata ? JSON.stringify(initialValues.metadata) : undefined
-  );
+  const [media, setMedia] = React.useState(initialValues.media);
+  const [status, setStatus] = React.useState(initialValues.status);
+  const [metadata, setMetadata] = React.useState(initialValues.metadata);
   const [errors, setErrors] = React.useState({});
   const resetStateValues = () => {
     setParent(initialValues.parent);
@@ -67,7 +60,14 @@ export default function TranscriptCreateForm(props) {
     status: [{ type: "Required" }, { type: "JSON" }],
     metadata: [{ type: "Required" }, { type: "JSON" }],
   };
-  const runValidationTasks = async (fieldName, value) => {
+  const runValidationTasks = async (
+    fieldName,
+    currentValue,
+    getDisplayValue
+  ) => {
+    const value = getDisplayValue
+      ? getDisplayValue(currentValue)
+      : currentValue;
     let validationResponse = validateField(value, validations[fieldName]);
     const customValidator = fetchByPath(onValidate, fieldName);
     if (customValidator) {
@@ -115,6 +115,11 @@ export default function TranscriptCreateForm(props) {
           modelFields = onSubmit(modelFields);
         }
         try {
+          Object.entries(modelFields).forEach(([key, value]) => {
+            if (typeof value === "string" && value.trim() === "") {
+              modelFields[key] = undefined;
+            }
+          });
           await DataStore.save(new Transcript(modelFields));
           if (onSuccess) {
             onSuccess(modelFields);
@@ -128,13 +133,14 @@ export default function TranscriptCreateForm(props) {
           }
         }
       }}
-      {...rest}
       {...getOverrideProps(overrides, "TranscriptCreateForm")}
+      {...rest}
     >
       <TextField
         label="Parent"
         isRequired={false}
         isReadOnly={false}
+        value={parent}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -163,6 +169,7 @@ export default function TranscriptCreateForm(props) {
         label="Title"
         isRequired={true}
         isReadOnly={false}
+        value={title}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -191,6 +198,7 @@ export default function TranscriptCreateForm(props) {
         label="Language"
         isRequired={true}
         isReadOnly={false}
+        value={language}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -306,18 +314,16 @@ export default function TranscriptCreateForm(props) {
         <Button
           children="Clear"
           type="reset"
-          onClick={resetStateValues}
+          onClick={(event) => {
+            event.preventDefault();
+            resetStateValues();
+          }}
           {...getOverrideProps(overrides, "ClearButton")}
         ></Button>
-        <Flex {...getOverrideProps(overrides, "RightAlignCTASubFlex")}>
-          <Button
-            children="Cancel"
-            type="button"
-            onClick={() => {
-              onCancel && onCancel();
-            }}
-            {...getOverrideProps(overrides, "CancelButton")}
-          ></Button>
+        <Flex
+          gap="15px"
+          {...getOverrideProps(overrides, "RightAlignCTASubFlex")}
+        >
           <Button
             children="Submit"
             type="submit"

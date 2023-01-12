@@ -6,9 +6,6 @@
 
 /* eslint-disable */
 import * as React from "react";
-import { fetchByPath, validateField } from "./utils";
-import { User } from "../models";
-import { getOverrideProps } from "@aws-amplify/ui-react/internal";
 import {
   Button,
   Flex,
@@ -16,6 +13,9 @@ import {
   TextAreaField,
   TextField,
 } from "@aws-amplify/ui-react";
+import { getOverrideProps } from "@aws-amplify/ui-react/internal";
+import { User } from "../models";
+import { fetchByPath, validateField } from "./utils";
 import { DataStore } from "aws-amplify";
 export default function UserCreateForm(props) {
   const {
@@ -23,18 +23,17 @@ export default function UserCreateForm(props) {
     onSuccess,
     onError,
     onSubmit,
-    onCancel,
     onValidate,
     onChange,
     overrides,
     ...rest
   } = props;
   const initialValues = {
-    identityId: undefined,
-    cognitoUsername: undefined,
-    email: undefined,
-    name: undefined,
-    metadata: undefined,
+    identityId: "",
+    cognitoUsername: "",
+    email: "",
+    name: "",
+    metadata: "",
   };
   const [identityId, setIdentityId] = React.useState(initialValues.identityId);
   const [cognitoUsername, setCognitoUsername] = React.useState(
@@ -42,9 +41,7 @@ export default function UserCreateForm(props) {
   );
   const [email, setEmail] = React.useState(initialValues.email);
   const [name, setName] = React.useState(initialValues.name);
-  const [metadata, setMetadata] = React.useState(
-    initialValues.metadata ? JSON.stringify(initialValues.metadata) : undefined
-  );
+  const [metadata, setMetadata] = React.useState(initialValues.metadata);
   const [errors, setErrors] = React.useState({});
   const resetStateValues = () => {
     setIdentityId(initialValues.identityId);
@@ -61,7 +58,14 @@ export default function UserCreateForm(props) {
     name: [{ type: "Required" }],
     metadata: [{ type: "Required" }, { type: "JSON" }],
   };
-  const runValidationTasks = async (fieldName, value) => {
+  const runValidationTasks = async (
+    fieldName,
+    currentValue,
+    getDisplayValue
+  ) => {
+    const value = getDisplayValue
+      ? getDisplayValue(currentValue)
+      : currentValue;
     let validationResponse = validateField(value, validations[fieldName]);
     const customValidator = fetchByPath(onValidate, fieldName);
     if (customValidator) {
@@ -108,6 +112,11 @@ export default function UserCreateForm(props) {
           modelFields = onSubmit(modelFields);
         }
         try {
+          Object.entries(modelFields).forEach(([key, value]) => {
+            if (typeof value === "string" && value.trim() === "") {
+              modelFields[key] = undefined;
+            }
+          });
           await DataStore.save(new User(modelFields));
           if (onSuccess) {
             onSuccess(modelFields);
@@ -121,13 +130,14 @@ export default function UserCreateForm(props) {
           }
         }
       }}
-      {...rest}
       {...getOverrideProps(overrides, "UserCreateForm")}
+      {...rest}
     >
       <TextField
         label="Identity id"
         isRequired={true}
         isReadOnly={false}
+        value={identityId}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -155,6 +165,7 @@ export default function UserCreateForm(props) {
         label="Cognito username"
         isRequired={true}
         isReadOnly={false}
+        value={cognitoUsername}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -182,6 +193,7 @@ export default function UserCreateForm(props) {
         label="Email"
         isRequired={true}
         isReadOnly={false}
+        value={email}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -209,6 +221,7 @@ export default function UserCreateForm(props) {
         label="Name"
         isRequired={true}
         isReadOnly={false}
+        value={name}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -266,18 +279,16 @@ export default function UserCreateForm(props) {
         <Button
           children="Clear"
           type="reset"
-          onClick={resetStateValues}
+          onClick={(event) => {
+            event.preventDefault();
+            resetStateValues();
+          }}
           {...getOverrideProps(overrides, "ClearButton")}
         ></Button>
-        <Flex {...getOverrideProps(overrides, "RightAlignCTASubFlex")}>
-          <Button
-            children="Cancel"
-            type="button"
-            onClick={() => {
-              onCancel && onCancel();
-            }}
-            {...getOverrideProps(overrides, "CancelButton")}
-          ></Button>
+        <Flex
+          gap="15px"
+          {...getOverrideProps(overrides, "RightAlignCTASubFlex")}
+        >
           <Button
             children="Submit"
             type="submit"

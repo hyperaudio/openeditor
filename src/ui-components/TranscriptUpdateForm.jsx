@@ -6,9 +6,6 @@
 
 /* eslint-disable */
 import * as React from "react";
-import { fetchByPath, validateField } from "./utils";
-import { Transcript } from "../models";
-import { getOverrideProps } from "@aws-amplify/ui-react/internal";
 import {
   Button,
   Flex,
@@ -16,59 +13,71 @@ import {
   TextAreaField,
   TextField,
 } from "@aws-amplify/ui-react";
+import { getOverrideProps } from "@aws-amplify/ui-react/internal";
+import { Transcript } from "../models";
+import { fetchByPath, validateField } from "./utils";
 import { DataStore } from "aws-amplify";
 export default function TranscriptUpdateForm(props) {
   const {
-    id,
+    id: idProp,
     transcript,
     onSuccess,
     onError,
     onSubmit,
-    onCancel,
     onValidate,
     onChange,
     overrides,
     ...rest
   } = props;
   const initialValues = {
-    parent: undefined,
-    title: undefined,
-    language: undefined,
-    media: undefined,
-    status: undefined,
-    metadata: undefined,
+    parent: "",
+    title: "",
+    language: "",
+    media: "",
+    status: "",
+    metadata: "",
   };
   const [parent, setParent] = React.useState(initialValues.parent);
   const [title, setTitle] = React.useState(initialValues.title);
   const [language, setLanguage] = React.useState(initialValues.language);
-  const [media, setMedia] = React.useState(
-    initialValues.media ? JSON.stringify(initialValues.media) : undefined
-  );
-  const [status, setStatus] = React.useState(
-    initialValues.status ? JSON.stringify(initialValues.status) : undefined
-  );
-  const [metadata, setMetadata] = React.useState(
-    initialValues.metadata ? JSON.stringify(initialValues.metadata) : undefined
-  );
+  const [media, setMedia] = React.useState(initialValues.media);
+  const [status, setStatus] = React.useState(initialValues.status);
+  const [metadata, setMetadata] = React.useState(initialValues.metadata);
   const [errors, setErrors] = React.useState({});
   const resetStateValues = () => {
-    const cleanValues = { ...initialValues, ...transcriptRecord };
+    const cleanValues = transcriptRecord
+      ? { ...initialValues, ...transcriptRecord }
+      : initialValues;
     setParent(cleanValues.parent);
     setTitle(cleanValues.title);
     setLanguage(cleanValues.language);
-    setMedia(cleanValues.media);
-    setStatus(cleanValues.status);
-    setMetadata(cleanValues.metadata);
+    setMedia(
+      typeof cleanValues.media === "string"
+        ? cleanValues.media
+        : JSON.stringify(cleanValues.media)
+    );
+    setStatus(
+      typeof cleanValues.status === "string"
+        ? cleanValues.status
+        : JSON.stringify(cleanValues.status)
+    );
+    setMetadata(
+      typeof cleanValues.metadata === "string"
+        ? cleanValues.metadata
+        : JSON.stringify(cleanValues.metadata)
+    );
     setErrors({});
   };
   const [transcriptRecord, setTranscriptRecord] = React.useState(transcript);
   React.useEffect(() => {
     const queryData = async () => {
-      const record = id ? await DataStore.query(Transcript, id) : transcript;
+      const record = idProp
+        ? await DataStore.query(Transcript, idProp)
+        : transcript;
       setTranscriptRecord(record);
     };
     queryData();
-  }, [id, transcript]);
+  }, [idProp, transcript]);
   React.useEffect(resetStateValues, [transcriptRecord]);
   const validations = {
     parent: [],
@@ -78,7 +87,14 @@ export default function TranscriptUpdateForm(props) {
     status: [{ type: "Required" }, { type: "JSON" }],
     metadata: [{ type: "Required" }, { type: "JSON" }],
   };
-  const runValidationTasks = async (fieldName, value) => {
+  const runValidationTasks = async (
+    fieldName,
+    currentValue,
+    getDisplayValue
+  ) => {
+    const value = getDisplayValue
+      ? getDisplayValue(currentValue)
+      : currentValue;
     let validationResponse = validateField(value, validations[fieldName]);
     const customValidator = fetchByPath(onValidate, fieldName);
     if (customValidator) {
@@ -126,6 +142,11 @@ export default function TranscriptUpdateForm(props) {
           modelFields = onSubmit(modelFields);
         }
         try {
+          Object.entries(modelFields).forEach(([key, value]) => {
+            if (typeof value === "string" && value.trim() === "") {
+              modelFields[key] = undefined;
+            }
+          });
           await DataStore.save(
             Transcript.copyOf(transcriptRecord, (updated) => {
               Object.assign(updated, modelFields);
@@ -140,14 +161,14 @@ export default function TranscriptUpdateForm(props) {
           }
         }
       }}
-      {...rest}
       {...getOverrideProps(overrides, "TranscriptUpdateForm")}
+      {...rest}
     >
       <TextField
         label="Parent"
         isRequired={false}
         isReadOnly={false}
-        defaultValue={parent}
+        value={parent}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -176,7 +197,7 @@ export default function TranscriptUpdateForm(props) {
         label="Title"
         isRequired={true}
         isReadOnly={false}
-        defaultValue={title}
+        value={title}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -205,7 +226,7 @@ export default function TranscriptUpdateForm(props) {
         label="Language"
         isRequired={true}
         isReadOnly={false}
-        defaultValue={language}
+        value={language}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -234,7 +255,7 @@ export default function TranscriptUpdateForm(props) {
         label="Media"
         isRequired={true}
         isReadOnly={false}
-        defaultValue={media}
+        value={media}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -263,7 +284,7 @@ export default function TranscriptUpdateForm(props) {
         label="Status"
         isRequired={true}
         isReadOnly={false}
-        defaultValue={status}
+        value={status}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -292,7 +313,7 @@ export default function TranscriptUpdateForm(props) {
         label="Metadata"
         isRequired={true}
         isReadOnly={false}
-        defaultValue={metadata}
+        value={metadata}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
@@ -324,23 +345,25 @@ export default function TranscriptUpdateForm(props) {
         <Button
           children="Reset"
           type="reset"
-          onClick={resetStateValues}
+          onClick={(event) => {
+            event.preventDefault();
+            resetStateValues();
+          }}
+          isDisabled={!(idProp || transcript)}
           {...getOverrideProps(overrides, "ResetButton")}
         ></Button>
-        <Flex {...getOverrideProps(overrides, "RightAlignCTASubFlex")}>
-          <Button
-            children="Cancel"
-            type="button"
-            onClick={() => {
-              onCancel && onCancel();
-            }}
-            {...getOverrideProps(overrides, "CancelButton")}
-          ></Button>
+        <Flex
+          gap="15px"
+          {...getOverrideProps(overrides, "RightAlignCTASubFlex")}
+        >
           <Button
             children="Submit"
             type="submit"
             variation="primary"
-            isDisabled={Object.values(errors).some((e) => e?.hasError)}
+            isDisabled={
+              !(idProp || transcript) ||
+              Object.values(errors).some((e) => e?.hasError)
+            }
             {...getOverrideProps(overrides, "SubmitButton")}
           ></Button>
         </Flex>

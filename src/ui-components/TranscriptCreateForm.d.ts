@@ -5,8 +5,8 @@
  **************************************************************************/
 
 import * as React from "react";
-import { EscapeHatchProps } from "@aws-amplify/ui-react/internal";
 import { GridProps, TextAreaFieldProps, TextFieldProps } from "@aws-amplify/ui-react";
+import { EscapeHatchProps } from "@aws-amplify/ui-react/internal";
 export declare type ValidationResponse = {
     hasError: boolean;
     errorMessage?: string;
@@ -28,15 +28,15 @@ export declare type TranscriptCreateFormValidationValues = {
     status?: ValidationFunction<string>;
     metadata?: ValidationFunction<string>;
 };
-export declare type FormProps<T> = Partial<T> & React.DOMAttributes<HTMLDivElement>;
+export declare type PrimitiveOverrideProps<T> = Partial<T> & React.DOMAttributes<HTMLDivElement>;
 export declare type TranscriptCreateFormOverridesProps = {
-    TranscriptCreateFormGrid?: FormProps<GridProps>;
-    parent?: FormProps<TextFieldProps>;
-    title?: FormProps<TextFieldProps>;
-    language?: FormProps<TextFieldProps>;
-    media?: FormProps<TextAreaFieldProps>;
-    status?: FormProps<TextAreaFieldProps>;
-    metadata?: FormProps<TextAreaFieldProps>;
+    TranscriptCreateFormGrid?: PrimitiveOverrideProps<GridProps>;
+    parent?: PrimitiveOverrideProps<TextFieldProps>;
+    title?: PrimitiveOverrideProps<TextFieldProps>;
+    language?: PrimitiveOverrideProps<TextFieldProps>;
+    media?: PrimitiveOverrideProps<TextAreaFieldProps>;
+    status?: PrimitiveOverrideProps<TextAreaFieldProps>;
+    metadata?: PrimitiveOverrideProps<TextAreaFieldProps>;
 } & EscapeHatchProps;
 export declare type TranscriptCreateFormProps = React.PropsWithChildren<{
     overrides?: TranscriptCreateFormOverridesProps | undefined | null;
@@ -45,8 +45,7 @@ export declare type TranscriptCreateFormProps = React.PropsWithChildren<{
     onSubmit?: (fields: TranscriptCreateFormInputValues) => TranscriptCreateFormInputValues;
     onSuccess?: (fields: TranscriptCreateFormInputValues) => void;
     onError?: (fields: TranscriptCreateFormInputValues, errorMessage: string) => void;
-    onCancel?: () => void;
     onChange?: (fields: TranscriptCreateFormInputValues) => TranscriptCreateFormInputValues;
     onValidate?: TranscriptCreateFormValidationValues;
-}>;
+} & React.CSSProperties>;
 export default function TranscriptCreateForm(props: TranscriptCreateFormProps): React.ReactElement;
