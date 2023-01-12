@@ -17,11 +17,13 @@ interface PlayerProps {
 
 const Player = forwardRef<ReactPlayer, PlayerProps>(
   ({ audioKey, playing, play, pause, setTime }: PlayerProps, ref): JSX.Element | null => {
-    const audio = false;
+    // const audio = false;
 
     const [darkMode] = useAtom(darkModeAtom);
     const [position, setPosition] = useAtom(playerPositionAtom);
-    const [url, setUrl] = useState<string | null>(null);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [audioHLSUrl, setAudioHLSUrl] = useState<string | null>(null);
+    const [videoHLSUrl, setVideoHLSUrl] = useState<string | null>(null);
 
     useEffect(() => {
       // eslint-disable-next-line no-unused-expressions
@@ -31,66 +33,83 @@ const Player = forwardRef<ReactPlayer, PlayerProps>(
             download: false,
             expires: 36000,
           });
+          setAudioUrl(signedAudioUrl);
 
-          // TODO load base m3u8 for audio and video playlists
+          let audioUrl;
+          try {
+            const audioM3U8Key = audioKey
+              .replace('public/media/audio', 'media/hls')
+              .replace('-transcoded.m4a', '-audio.m3u8');
 
-          const audioM3U8Key = audioKey
-            .replace('public/media/audio', 'media/hls')
-            .replace('-transcoded.m4a', '-audio.m3u8');
+            const signedAudioM3U8Url = await Storage.get(audioM3U8Key, {
+              download: false,
+              expires: 36000,
+            });
 
-          const signedAudioM3U8Url = await Storage.get(audioM3U8Key, {
-            download: false,
-            expires: 36000,
-          });
+            const { data: audioM3U8 } = await axios.get(signedAudioM3U8Url);
+            const folder = audioM3U8Key.split('/').slice(0, -1).join('/');
+            // console.log('audioM3U8', audioM3U8);
 
-          const { data: audioM3U8 } = await axios.get(signedAudioM3U8Url);
-          const folder = audioM3U8Key.split('/').slice(0, -1).join('/');
+            const signedAudioM3U8 = (
+              await Promise.all(
+                audioM3U8.split('\n').map(async (line: string) => {
+                  if (line.startsWith('#') || line.length === 0) return line;
+                  return Storage.get(`${folder}/${line.trim()}`, {
+                    download: false,
+                    expires: 36000,
+                  });
+                }),
+              )
+            ).join('\n');
+            // console.log('signedAudioM3U8', signedAudioM3U8);
+            const segments = audioM3U8.split('\n').filter((line: string) => !line.startsWith('#')).length;
+            // console.log(
+            //   'segments',
+            //   segments,
+            //   audioM3U8,
+            //   audioM3U8.split('\n').filter((line: string) => !line.startsWith('#')),
+            // );
 
-          const signedAudioM3U8 = (
-            await Promise.all(
-              audioM3U8.split('\n').map(async (line: string) => {
-                if (line.startsWith('#') || line.length === 0) return line;
-                return Storage.get(`${folder}/${line.trim()}`, {
-                  download: false,
-                  expires: 36000,
-                });
-              }),
-            )
-          ).join('\n');
+            const audioBlob = new Blob([signedAudioM3U8], { type: 'application/x-mpegURL' });
+            audioUrl = URL.createObjectURL(audioBlob);
+            if (segments > 3) setAudioHLSUrl(audioUrl);
+            // eslint-disable-next-line no-empty
+          } catch (ignored) {}
 
-          const audioBlob = new Blob([signedAudioM3U8], { type: 'application/x-mpegURL' });
-          const audioUrl = URL.createObjectURL(audioBlob);
+          let videoUrl;
+          try {
+            const videoM3U8Key = audioKey
+              .replace('public/media/audio', 'media/hls')
+              .replace('-transcoded.m4a', '-video_1.m3u8');
 
-          //
+            const signedVideoM3U8Url = await Storage.get(videoM3U8Key, {
+              download: false,
+              expires: 36000,
+            });
 
-          const videoM3U8Key = audioKey
-            .replace('public/media/audio', 'media/hls')
-            .replace('-transcoded.m4a', '-video_1.m3u8');
+            const { data: videoM3U8 } = await axios.get(signedVideoM3U8Url);
+            const folder = videoM3U8Key.split('/').slice(0, -1).join('/');
 
-          const signedVideoM3U8Url = await Storage.get(videoM3U8Key, {
-            download: false,
-            expires: 36000,
-          });
+            const signedVideoM3U8 = (
+              await Promise.all(
+                videoM3U8.split('\n').map(async (line: string) => {
+                  if (line.startsWith('#') || line.length === 0) return line;
+                  return Storage.get(`${folder}/${line.trim()}`, {
+                    download: false,
+                    expires: 36000,
+                  });
+                }),
+              )
+            ).join('\n');
+            const segments = videoM3U8.split('\n').filter((line: string) => !line.startsWith('#')).length;
 
-          const { data: videooM3U8 } = await axios.get(signedVideoM3U8Url);
-          // const folder = videoM3U8Key.split('/').slice(0, -1).join('/');
+            const videoBlob = new Blob([signedVideoM3U8], { type: 'application/x-mpegURL' });
+            videoUrl = URL.createObjectURL(videoBlob);
+            if (segments > 3) setVideoHLSUrl(videoUrl);
+            // eslint-disable-next-line no-empty
+          } catch (ignored) {}
 
-          const signedVideoM3U8 = (
-            await Promise.all(
-              videooM3U8.split('\n').map(async (line: string) => {
-                if (line.startsWith('#') || line.length === 0) return line;
-                return Storage.get(`${folder}/${line.trim()}`, {
-                  download: false,
-                  expires: 36000,
-                });
-              }),
-            )
-          ).join('\n');
-
-          const videoBlob = new Blob([signedVideoM3U8], { type: 'application/x-mpegURL' });
-          const videoUrl = URL.createObjectURL(videoBlob);
-
-          setUrl(videoUrl ?? audioUrl ?? signedAudioUrl);
+          // console.log({ videoUrl, audioUrl, signedAudioUrl });
         })();
     }, [audioKey]);
 
@@ -105,9 +124,9 @@ const Player = forwardRef<ReactPlayer, PlayerProps>(
 
     const config = useMemo(
       () => ({
-        // forceAudio: audio,
-        // forceVideo: !audio,
-        forceHLS: true,
+        forceAudio: !videoHLSUrl,
+        forceVideo: videoHLSUrl,
+        forceHLS: audioHLSUrl || videoHLSUrl,
         file: {
           attributes: {
             // poster: 'https://via.placeholder.com/720x576.png?text=4:3',
@@ -115,12 +134,15 @@ const Player = forwardRef<ReactPlayer, PlayerProps>(
           },
         },
       }),
-      [audio],
+      [audioHLSUrl, videoHLSUrl],
     );
 
     const onDuration = useCallback((duration: number) => {
       console.log({ duration });
     }, []);
+
+    const url = useMemo(() => videoHLSUrl ?? audioHLSUrl ?? audioUrl, [audioHLSUrl, audioUrl, videoHLSUrl]);
+    const audio = useMemo(() => !videoHLSUrl, [videoHLSUrl]);
 
     const onProgress = useCallback(({ playedSeconds }: { playedSeconds: number }) => setTime(playedSeconds), [setTime]);
 
@@ -139,6 +161,7 @@ const Player = forwardRef<ReactPlayer, PlayerProps>(
               cursor: 'move',
             }}>
             <ReactPlayer
+              key={url}
               controls
               {...{ ref, url, config, playing, onDuration, onProgress }}
               onPlay={play}
