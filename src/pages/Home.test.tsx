@@ -20,3 +20,5 @@ test('renders OpenEditor', () => {
   const linkElement = screen.getByText(/OpenEditor/i);
   expect(linkElement).toBeInTheDocument();
 });
+
+// TODO see https://www.npmjs.com/package/jest-matchmedia-mock
