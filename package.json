@@ -26,6 +26,7 @@
     "immutable": "~3.7.4",
     "interval-operations": "^1.0.7",
     "jotai": "^1.8.3",
+    "media-chrome": "^0.17.1",
     "mediainfo.js": "^0.1.8",
     "mime": "^3.0.0",
     "moment": "^2.29.4",
@@ -89,7 +90,6 @@
     "@typescript-eslint/parser": "^5.30.6",
     "cypress": "^10.3.0",
     "eslint": "^8.19.0",
-    "patch-package": "^6.5.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-prettier": "^8.5.0",
     "eslint-import-resolver-typescript": "^3.2.6",
@@ -100,6 +100,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "jsdom-worker": "^0.2.1",
     "jsonfile": "^6.1.0",
+    "patch-package": "^6.5.0",
     "prettier": "2.7.1",
     "rimraf": "^3.0.2",
     "tabletojson": "^2.0.7"

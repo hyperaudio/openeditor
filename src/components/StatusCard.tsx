@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable dot-notation */
 /* eslint-disable no-unused-expressions */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -7,20 +8,27 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, Ref } from 'r
 import { DataStore, Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import { v4 as uuidv4 } from 'uuid';
-import { Card, Tag, Badge, Tooltip, Steps, Button, Upload, Select, message, Space, Popconfirm, Input } from 'antd';
+import { Card, Tag, Badge, Tooltip, Steps, Button, Upload, Select, message, Input } from 'antd';
 import {
   UploadOutlined,
   LoadingOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
-  ExclamationCircleOutlined,
   MinusCircleOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
 import { RcFile } from 'antd/lib/upload';
 import mime from 'mime/lite';
-import MediaInfo, { Result } from 'mediainfo.js';
+// import MediaInfo, { Result } from 'mediainfo.js';
+import {
+  MediaController,
+  MediaControlBar,
+  MediaPlayButton,
+  MediaTimeDisplay,
+  MediaTimeRange,
+  MediaVolumeRange,
+} from 'media-chrome/dist/react';
 
 import { User, Transcript } from '../models';
 import languages from '../data/aws-transcribe-languages.json';
@@ -469,9 +477,17 @@ const Audio = ({ audioKey }: { audioKey: string }): JSX.Element => {
 
   // TODO 404 audio src?
   return (
-    <audio controls src={src ?? ''} style={{ width: '100%' }}>
-      {' '}
-    </audio>
+    <MediaController audio style={{ width: '100%' }}>
+      <audio slot="media" src={src ?? ''}>
+        {' '}
+      </audio>
+      <MediaControlBar style={{ width: '100%' }}>
+        <MediaPlayButton />
+        <MediaTimeDisplay showDuration />
+        <MediaTimeRange />
+        <MediaVolumeRange />
+      </MediaControlBar>
+    </MediaController>
   );
 };
 
