@@ -4,7 +4,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObject } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import ReactPlayer from 'react-player';
@@ -20,6 +20,7 @@ import Player from '../components/Player';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/StatusCard';
 import DataCard from '../components/DataCard';
+import ExportCard from '../components/ExportCard';
 import Footer from '../components/Footer';
 
 const { Content } = Layout;
@@ -133,10 +134,6 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const openExportDrawer = useCallback(() => setExportDrawerVisible(true), []);
   const closeExportDrawer = useCallback(() => setExportDrawerVisible(false), []);
 
-  const handleExport = useCallback(async () => {
-    // TODO export
-  }, []);
-
   const ref = useRef<ReactPlayer | null>() as MutableRefObject<ReactPlayer>;
   const [time, setTime] = useState(0);
 
@@ -154,10 +151,22 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
     return (steps[transcodeIndex] as any)?.data?.audio?.key;
   }, [transcript]);
 
+  const itemRender = useCallback((route: any, params: any, routes: any[], paths: any[]) => {
+    const last = false; // routes.indexOf(route) === routes.length - 1;
+    return last ? <span>{route.breadcrumbName}</span> : <Link to={paths.join('/')}>{route.breadcrumbName}</Link>;
+  }, []);
+
   return (
     <Layout>
       <PageHeader
         className="site-page-header"
+        breadcrumb={{
+          routes: [
+            { path: '/', breadcrumbName: 'Home' },
+            // { path: `/${uuid}`, breadcrumbName: transcript?.title ?? uuid },
+          ],
+          itemRender,
+        }}
         title={transcript?.title ?? uuid}
         subTitle={
           <div style={{ display: 'inline-block' }} onClick={openStatusDrawer}>
@@ -227,7 +236,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         onClose={closeExportDrawer}
         visible={exportDrawerVisible}
         width={600}>
-        <p>TODO export card</p>
+        <ExportCard transcript={transcript} user={user} content={draft} />
       </Drawer>
       <DataCard objects={{ transcript }} />
     </Layout>
