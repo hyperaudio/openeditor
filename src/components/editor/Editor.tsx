@@ -28,7 +28,7 @@ import { AutoComplete } from 'antd';
 // import RefAutoComplete from 'antd/lib/auto-complete';
 import { nanoid } from 'nanoid';
 
-import { darkModeAtom } from '../../atoms';
+import { darkModeAtom, measureAtom } from '../../atoms';
 
 import PlayheadDecorator from './PlayheadDecorator';
 import reducer from './reducer';
@@ -473,6 +473,7 @@ const BlockStyleElement = ({
 
 const EditorStyleElement = (): JSX.Element => {
   const [darkMode] = useAtom(darkModeAtom);
+  const [measure] = useAtom(measureAtom);
 
   const style = useMemo(
     () => `
@@ -490,6 +491,8 @@ const EditorStyleElement = (): JSX.Element => {
     font-size: 16px;
     font-weight: 400;
     caret-color: #177ddc;
+    width: min(calc(${measure}em + 120px), 100%);
+    margin: 0 auto;
   }
 
   .ant-select-auto-complete input {
@@ -574,7 +577,7 @@ const EditorStyleElement = (): JSX.Element => {
     transition: 0.2s;
   }
   `,
-    [darkMode],
+    [darkMode, measure],
   );
   return <style scoped>{style}</style>;
 };
