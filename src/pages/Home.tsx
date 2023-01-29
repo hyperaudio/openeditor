@@ -177,7 +177,7 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
           title={statusDrawerTranscript?.title}
           placement="right"
           onClose={closeStatusDrawer}
-          visible={statusDrawerVisible}
+          open={statusDrawerVisible}
           width={600}>
           {statusDrawerTranscript ? (
             <StatusCard transcript={statusDrawerTranscript} user={user} groups={groups} />

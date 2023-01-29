@@ -39,7 +39,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const [darkMode] = useAtom(darkModeAtom);
 
   const transcript = useMemo(() => transcripts?.find(({ id }) => id === uuid), [transcripts, uuid]);
-  const { step, steps } = useMemo(() => {
+  const { step } = useMemo(() => {
     if (!transcript) return { step: -1, steps: [] };
     return (transcript.status as unknown as Record<string, any>) ?? { step: -1, steps: [] };
   }, [transcript]);
@@ -224,7 +224,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         title={transcript?.title}
         placement="right"
         onClose={closeStatusDrawer}
-        visible={statusDrawerVisible}
+        open={statusDrawerVisible}
         closable={!(step < 3)}
         width={600}>
         {transcript ? <StatusCard transcript={transcript} user={user} groups={groups} /> : null}
@@ -234,7 +234,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         title="Export"
         placement="right"
         onClose={closeExportDrawer}
-        visible={exportDrawerVisible}
+        open={exportDrawerVisible}
         width={600}>
         <ExportCard transcript={transcript} user={user} content={draft} />
       </Drawer>

@@ -2,4 +2,5 @@
 
 interface Window {
   Amplify: Amplify;
+  // MediaInfo: MediaInfo;
 }

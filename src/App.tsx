@@ -15,7 +15,6 @@ import AuthPage from './pages/Auth';
 import Home from './pages/Home';
 import TranscriptPage from './pages/Transcript';
 import NotFound from './pages/NotFound';
-import Preferences from './pages/Preferences';
 import UserMenu from './components/UserMenu';
 
 export const theme = {
@@ -125,9 +124,6 @@ const App = (): JSX.Element => {
       </Route>
       <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
         <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
-      </Route>
-      <Route path="/preferences">
-        <Preferences />
       </Route>
       <Route path="*">
         <NotFound />

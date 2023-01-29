@@ -43,41 +43,39 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
     <>
       <Dropdown
         trigger={['click']}
-        overlay={
-          <Menu
-            onClick={handleClick}
-            items={[
-              {
-                label: (
-                  <Space>
-                    <SettingOutlined /> Preferences
-                  </Space>
-                ),
-                key: '0',
-              },
-              {
-                label: (
-                  <Space>
-                    <LogoutOutlined /> Sign Out
-                  </Space>
-                ),
-                key: '1',
-              },
-              {
-                type: 'divider',
-              },
-              {
-                label: (
-                  <Space>
-                    <Switch size="small" checked={darkMode} onChange={handleChange} />
-                    Dark mode
-                  </Space>
-                ),
-                key: '2',
-              },
-            ]}
-          />
-        }>
+        menu={{
+          onClick: handleClick,
+          items: [
+            {
+              label: (
+                <Space>
+                  <SettingOutlined /> Preferences
+                </Space>
+              ),
+              key: '0',
+            },
+            {
+              label: (
+                <Space>
+                  <LogoutOutlined /> Sign Out
+                </Space>
+              ),
+              key: '1',
+            },
+            {
+              type: 'divider',
+            },
+            {
+              label: (
+                <Space>
+                  <Switch size="small" checked={darkMode} onChange={handleChange} />
+                  Dark mode
+                </Space>
+              ),
+              key: '2',
+            },
+          ],
+        }}>
         <div style={{ cursor: 'pointer' }}>
           <Avatar src={emailHash ? `https://www.gravatar.com/avatar/${emailHash}?d=404` : null}>
             {user?.name.charAt(0).toUpperCase()}
@@ -85,12 +83,7 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
           <DownOutlined />
         </div>
       </Dropdown>
-      <Drawer
-        title="Settings"
-        placement="right"
-        onClose={closeSettingsDrawer}
-        visible={settingsDrawerVisible}
-        width={600}>
+      <Drawer title="Settings" placement="right" onClose={closeSettingsDrawer} open={settingsDrawerVisible} width={600}>
         <Space direction="vertical" size="large">
           <Space>
             <Switch size="small" checked={darkMode} onChange={handleChange} />
