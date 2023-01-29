@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: black;
+          color: white;
+        }
+      }
+
+      @media (prefers-color-scheme: light) {
+        body {
+          background-color: white;
+          color: black;
+        }
+      }
+
+      body.dark {
+        background-color: black;
+        color: white;
+      }
+    </style>
+
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="application-name" content="Open Editor" data-version="%REACT_APP_GIT_DESCRIBE%" />
+
+    <title>Open Editor</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Emoji&family=Noto+Sans+Display&family=Noto+Sans+Mono:wght@400;500;600&family=Noto+Color+Emoji&family=Noto+Emoji&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <script>
+      const darkMode = localStorage.getItem('darkMode');
+      if (darkMode === 'true') {
+        document.body.classList.add('dark');
+      } else if (darkMode === 'false') {
+        document.body.classList.remove('dark');
+      } else if (darkMode === null) {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.body.classList.add('dark');
+        } else {
+          document.body.classList.remove('dark');
+        }
+      }
+    </script>
+
+    <div id="root"></div>
+    <div id="portal1"></div>
+  </body>
+</html>

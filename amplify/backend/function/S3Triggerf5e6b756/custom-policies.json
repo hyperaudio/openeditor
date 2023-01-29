@@ -1,0 +1,31 @@
+[
+  {
+    "Action": ["transcribe:*"],
+    "Resource": ["*"],
+    "Effect": "Allow"
+  },
+  {
+    "Action": ["mediaconvert:*"],
+    "Resource": ["*"],
+    "Effect": "Allow"
+  },
+  {
+    "Action": ["iam:PassRole"],
+    "Resource": [
+      {
+        "Fn::Sub": [
+          "arn:aws:iam::${account}:role/MediaConvertRole-OpenEditor-${env}",
+          {
+            "account": {
+              "Ref": "AWS::AccountId"
+            },
+            "env": {
+              "Ref": "env"
+            }
+          }
+        ]
+      }
+    ],
+    "Effect": "Allow"
+  }
+]

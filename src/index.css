@@ -1,0 +1,25 @@
+@import '@aws-amplify/ui-react/styles.css';
+@import '~antd/dist/antd.css';
+/* @import '~antd/dist/antd.dark.css'; */
+
+body,
+*[class^='ant-'] {
+  font-family: 'Noto Sans Display', system-ui, -apple-system, BlinkMacSystemFont, '.SFNSText-Regular', 'San Francisco',
+    'Roboto', 'Segoe UI', 'Helvetica Neue', Helvetica, 'Lucida Grande', Arial, sans-serif, 'Noto Color Emoji',
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code,
+pre,
+.react-json-view > div {
+  font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
+    'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
+    'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace,
+    'Noto Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+}
+
+.react-json-view + .react-json-view {
+  margin-top: 1em;
+}

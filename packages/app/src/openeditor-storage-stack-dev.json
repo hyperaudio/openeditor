@@ -1,5 +1,0 @@
-{
-  "StorageBucketName": "openeditor-dev-storage-n5v4ltxhx",
-  "StorageBucketArn": "arn:aws:s3:::openeditor-dev-storage-n5v4ltxhx",
-  "ServerlessDeploymentBucketName": "openeditor-dev-deployment-n5v4ltxhx"
-}

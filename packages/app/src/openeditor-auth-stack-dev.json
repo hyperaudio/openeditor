@@ -1,7 +1,0 @@
-{
-  "UserPoolClientId": "4p9t0m0aebje7dknf0e8qqae7g",
-  "UserPoolId": "us-east-2_KB7Eccf2z",
-  "IdentityPoolId": "us-east-2:5ae9d233-3256-413d-ad93-d12e4b60c8a7",
-  "UserPoolArn": "arn:aws:cognito-idp:us-east-2:719544875353:userpool/us-east-2_KB7Eccf2z",
-  "ServerlessDeploymentBucketName": "openeditor-dev-deployment-n5v4ltxhx"
-}

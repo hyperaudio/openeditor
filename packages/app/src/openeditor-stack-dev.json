@@ -1,7 +1,0 @@
-{
-  "ApiGatewayRestApiId": "54xdeglhla",
-  "Region": "us-east-2",
-  "ServiceEndpoint": "https://54xdeglhla.execute-api.us-east-2.amazonaws.com/dev",
-  "ApiGatewayRestApiRootResourceId": "5yh4t8tmff",
-  "ServerlessDeploymentBucketName": "openeditor-dev-deployment-n5v4ltxhx"
-}

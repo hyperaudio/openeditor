@@ -1,0 +1,13 @@
+**/build/**
+
+**/node_modules
+
+.eslintrc.js
+
+src/aws-exports.js
+
+src/models
+scripts/
+amplify/
+
+amplify-codegen-temp/models

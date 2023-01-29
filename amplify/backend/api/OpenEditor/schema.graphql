@@ -1,0 +1,37 @@
+type Transcript
+  @model
+  @auth(
+    rules: [
+      { allow: private, operations: [read] }
+      { allow: private, provider: iam }
+      { allow: groups, groups: ["Admins"], operations: [read, create, update, delete] }
+      { allow: groups, groups: ["Editors"], operations: [read, create, update] }
+      { allow: owner }
+    ]
+  ) {
+  id: ID!
+  parent: String
+  title: String!
+  language: String!
+  media: AWSJSON!
+  status: AWSJSON!
+  metadata: AWSJSON!
+}
+
+type User
+  @model
+  @auth(
+    rules: [
+      { allow: private, operations: [read] }
+      { allow: groups, groups: ["Admins"], operations: [read, update, delete] }
+      { allow: owner }
+    ]
+  ) {
+  id: ID!
+  identityId: String!
+  cognitoUsername: String!
+  email: String!
+  name: String!
+  metadata: AWSJSON!
+}
+ 

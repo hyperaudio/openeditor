@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "api": {
+      "OpenEditor": [
+        "Query",
+        "Mutation",
+        "Subscription"
+      ]
+    }
+  },
+  "lambdaLayers": [
+    {
+      "type": "ProjectLayer",
+      "resourceName": "openeditorlayerffprobe",
+      "env": "staging",
+      "version": "Always choose latest version",
+      "isLatestVersionSelected": true
+    }
+  ]
+}
