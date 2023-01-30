@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <style>
-      @media (prefers-color-scheme: dark) {
+      /* @media (prefers-color-scheme: dark) {
         body {
           background-color: black;
           color: white;
@@ -20,7 +20,7 @@
       body.dark {
         background-color: black;
         color: white;
-      }
+      } */
     </style>
 
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
@@ -36,18 +36,18 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <script>
-      const darkMode = localStorage.getItem('darkMode');
-      if (darkMode === 'true') {
-        document.body.classList.add('dark');
-      } else if (darkMode === 'false') {
-        document.body.classList.remove('dark');
-      } else if (darkMode === null) {
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.body.classList.add('dark');
-        } else {
-          document.body.classList.remove('dark');
-        }
-      }
+      // const darkMode = localStorage.getItem('darkMode');
+      // if (darkMode === 'true') {
+      //   document.body.classList.add('dark');
+      // } else if (darkMode === 'false') {
+      //   document.body.classList.remove('dark');
+      // } else if (darkMode === null) {
+      //   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      //     document.body.classList.add('dark');
+      //   } else {
+      //     document.body.classList.remove('dark');
+      //   }
+      // }
     </script>
 
     <div id="root"></div>

@@ -8,8 +8,10 @@ import { useParams, Link } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import ReactPlayer from 'react-player';
-import { Layout, Col, Row, PageHeader, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider } from 'antd';
+import { Layout, Col, Row, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider } from 'antd';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
+import EditOutlined from '@ant-design/icons/EditOutlined';
+import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
@@ -47,6 +49,10 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const [statusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const openStatusDrawer = useCallback(() => setStatusDrawerVisible(true), []);
   const closeStatusDrawer = useCallback(() => setStatusDrawerVisible(step >= 0 && step < 3), [step]);
+
+  const [metaDrawerVisible, setMetaDrawerVisible] = useState(false);
+  const openMetaDrawer = useCallback(() => setMetaDrawerVisible(true), []);
+  const closeMetaDrawer = useCallback(() => setMetaDrawerVisible(false), []);
 
   useEffect(
     () => setStatusDrawerVisible(step >= 0 && step < 3 ? true : statusDrawerVisible),
@@ -158,7 +164,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
 
   return (
     <Layout>
-      <PageHeader
+      <PageContainer
         className="site-page-header"
         breadcrumb={{
           routes: [
@@ -167,7 +173,12 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
           ],
           itemRender,
         }}
-        title={transcript?.title ?? uuid}
+        title={
+          <>
+            {transcript?.title ?? uuid}
+            <Button type="link" size="large" icon={<EditOutlined />} onClick={openMetaDrawer} />
+          </>
+        }
         subTitle={
           <div style={{ display: 'inline-block' }} onClick={openStatusDrawer}>
             {transcript ? <StatusTag transcript={transcript} /> : null}
@@ -219,6 +230,16 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
       </Content>
       <Footer />
       <BackTop />
+      <Drawer
+        destroyOnClose
+        title={transcript?.title}
+        placement="right"
+        onClose={closeMetaDrawer}
+        open={metaDrawerVisible}
+        closable
+        width={600}>
+        metadata editor
+      </Drawer>
       <Drawer
         destroyOnClose
         title={transcript?.title}

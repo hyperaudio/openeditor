@@ -5,9 +5,10 @@ import { Link, useHistory } from 'react-router-dom';
 import { DataStore } from 'aws-amplify';
 import Moment from 'react-moment';
 import 'moment-timezone';
-import { Layout, Col, Row, PageHeader, Table, Typography, Drawer, BackTop, Button, Space, Divider } from 'antd';
+import { Layout, Col, Row, Table, Typography, Drawer, BackTop, Button, Space, Divider } from 'antd';
 import UploadOutlined from '@ant-design/icons/UploadOutlined';
 import { ColumnsType } from 'antd/es/table';
+import { PageContainer } from '@ant-design/pro-components';
 
 import { User, Transcript } from '../models';
 import StatusCard, { StatusTag, StatusBadge } from '../components/StatusCard';
@@ -155,7 +156,7 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
 
   return (
     <Layout>
-      <PageHeader
+      <PageContainer
         title={
           <>
             <span>OpenEditor</span>{' '}

@@ -1,6 +1,5 @@
 @import '@aws-amplify/ui-react/styles.css';
-@import '~antd/dist/antd.css';
-/* @import '~antd/dist/antd.dark.css'; */
+@import '~antd/dist/reset.css';
 
 body,
 *[class^='ant-'] {
