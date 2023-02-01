@@ -6,7 +6,7 @@ import { DownOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons
 import hash from 'object-hash';
 
 import { User } from '../models';
-import { darkModeAtom, measureAtom } from '../atoms';
+import { darkModeAtom, measureAtom, transportAtTopAtom, showFullTimecodeAtom } from '../atoms';
 
 interface UserMenuProps {
   user: User | undefined;
@@ -17,6 +17,9 @@ interface UserMenuProps {
 const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
   const [darkMode, setDarkMode] = useAtom(darkModeAtom);
   const [measure, setMeasure] = useAtom(measureAtom);
+  const [transportAtTop, setTransportAtTop] = useAtom(transportAtTopAtom);
+  const [showFullTimecode, setShowFullTimecode] = useAtom(showFullTimecodeAtom);
+
   const emailHash = useMemo(() => (user ? hash.MD5(user.email.trim().toLowerCase()) : null), [user]);
 
   const [settingsDrawerVisible, setSettingsDrawerVisible] = useState(false);
@@ -26,12 +29,20 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
     ({ key }: { key: string }) => {
       if (key === '0') setSettingsDrawerVisible(true);
       if (key === '1') signOut();
-      if (key === '2') setDarkMode(!darkMode);
+      // if (key === '2') setDarkMode(!darkMode);
     },
     [signOut, darkMode, setDarkMode],
   );
 
-  const handleChange = useCallback((darkMode: boolean) => setDarkMode(darkMode), [setDarkMode]);
+  const handleDarkModeChange = useCallback((darkMode: boolean) => setDarkMode(darkMode), [setDarkMode]);
+  const handleTransportChange = useCallback(
+    (transportAtTop: boolean) => setTransportAtTop(transportAtTop),
+    [setTransportAtTop],
+  );
+  const handleShowFullTimecodeChange = useCallback(
+    (showFullTimecode: boolean) => setShowFullTimecode(showFullTimecode),
+    [setShowFullTimecode],
+  );
   const handleMeasureChange = useCallback(
     (measure: number | null) => {
       if (measure) setMeasure(measure);
@@ -68,7 +79,7 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
             {
               label: (
                 <Space>
-                  <Switch size="small" checked={darkMode} onChange={handleChange} />
+                  <Switch size="small" checked={darkMode} onChange={handleDarkModeChange} disabled />
                   Dark mode
                 </Space>
               ),
@@ -86,8 +97,16 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
       <Drawer title="Settings" placement="right" onClose={closeSettingsDrawer} open={settingsDrawerVisible} width={600}>
         <Space direction="vertical" size="large">
           <Space>
-            <Switch size="small" checked={darkMode} onChange={handleChange} />
+            <Switch size="small" checked={darkMode} onChange={handleDarkModeChange} disabled />
             Dark mode
+          </Space>
+          <Space>
+            <Switch size="small" checked={transportAtTop} onChange={handleTransportChange} />
+            Media transport docked at top
+          </Space>
+          <Space>
+            <Switch size="small" checked={showFullTimecode} onChange={handleShowFullTimecodeChange} />
+            Show full timecode
           </Space>
           <Space>
             <InputNumber addonAfter="em" min={30} max={80} step={1} value={measure} onChange={handleMeasureChange} />

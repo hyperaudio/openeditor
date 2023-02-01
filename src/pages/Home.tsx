@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
 import { DataStore } from 'aws-amplify';
+import { useAtom } from 'jotai';
 import Moment from 'react-moment';
 import 'moment-timezone';
 import { Layout, Col, Row, Table, Typography, Drawer, BackTop, Button, Space, Divider } from 'antd';
@@ -14,6 +15,7 @@ import { User, Transcript } from '../models';
 import StatusCard, { StatusTag, StatusBadge } from '../components/StatusCard';
 import DataCard from '../components/DataCard';
 import Footer from '../components/Footer';
+import { darkModeAtom } from '../atoms';
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
@@ -27,6 +29,7 @@ interface HomeProps {
 
 const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Element => {
   const history = useHistory();
+  const [darkMode] = useAtom(darkModeAtom);
 
   const newTranscript = useCallback(async () => {
     const transcript = await DataStore.save(
@@ -173,7 +176,16 @@ const Home = ({ user, groups, transcripts = [], userMenu }: HomeProps): JSX.Elem
         }
       />
       <Content>
-        <Table dataSource={transcripts} columns={columns} size="middle" rowKey="id" pagination={false} sticky />
+        <Row
+          style={{
+            backgroundColor: darkMode ? 'black' : 'white',
+            // paddingTop: '3em',
+            // paddingBottom: '5em',
+          }}>
+          <Col span={22} offset={1}>
+            <Table dataSource={transcripts} columns={columns} size="middle" rowKey="id" pagination={false} sticky />
+          </Col>
+        </Row>
         <Drawer
           title={statusDrawerTranscript?.title}
           placement="right"

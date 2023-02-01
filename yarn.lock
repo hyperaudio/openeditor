@@ -6981,9 +6981,9 @@ caniuse-api@^3.0.0:
     lodash.uniq "^4.5.0"
 
 caniuse-lite@^1.0.0, caniuse-lite@^1.0.30001335, caniuse-lite@^1.0.30001366:
-  version "1.0.30001366"
-  resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001366.tgz"
-  integrity sha512-yy7XLWCubDobokgzudpkKux8e0UOOnLHE6mlNJBzT3lZJz6s5atSEzjoL+fsCPkI0G8MP5uVdDx1ur/fXEWkZA==
+  version "1.0.30001449"
+  resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001449.tgz"
+  integrity sha512-CPB+UL9XMT/Av+pJxCKGhdx+yg1hzplvFJQlJ2n68PyQGMz9L/E2zCyLdOL8uasbouTUgnPl+y0tccI/se+BEw==
 
 capital-case@^1.0.4:
   version "1.0.4"
@@ -7744,6 +7744,11 @@ csstype@^3.0.2, csstype@^3.0.4:
   version "3.1.0"
   resolved "https://registry.npmjs.org/csstype/-/csstype-3.1.0.tgz"
   integrity sha512-uX1KG+x9h5hIJsaKR9xHUeUraxf8IODOwq9JLNPq6BwB04a/xgpq3rcx47l5BZu5zBPlgD342tdke3Hom/nJRA==
+
+custom-video-element@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/custom-video-element/-/custom-video-element-0.0.2.tgz#aead266cef4ad6bc046e269472744ff76e4d7e43"
+  integrity sha512-kkuWKjaHZfy6lVwNlbjbgbXxkQLsPbCARUwDiZyfdPQ2nbDJMuuaQUWDUpxhpkc3b3M30eqxjHbz86gfQyL9aQ==
 
 cypress@^10.3.0:
   version "10.3.0"
@@ -8707,6 +8712,11 @@ eventemitter2@^6.4.3:
   resolved "https://registry.npmjs.org/eventemitter2/-/eventemitter2-6.4.6.tgz"
   integrity sha512-OHqo4wbHX5VbvlbB6o6eDwhYmiTjrpWACjF8Pmof/GTD6rdBNdZFNck3xlhqOiQFGCOoq3uzHvA0cQpFHIGVAQ==
 
+eventemitter3@3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-3.1.0.tgz#090b4d6cdbd645ed10bf750d4b5407942d7ba163"
+  integrity sha512-ivIvhpq/Y0uSjcHDcOIccjmYjGLcP09MFGE7ysAwkAvkXfpZlC985pH2/ui64DKazbTW/4kN3yqozUxlXzI6cA==
+
 eventemitter3@^4.0.0:
   version "4.0.7"
   resolved "https://registry.npmjs.org/eventemitter3/-/eventemitter3-4.0.7.tgz"
@@ -9587,6 +9597,27 @@ history@^4.9.0:
     tiny-invariant "^1.0.2"
     tiny-warning "^1.0.0"
     value-equal "^1.0.1"
+
+hls-video-element@^0.0.4:
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/hls-video-element/-/hls-video-element-0.0.4.tgz#c27a1333de073d41f256584b5cd741492ef0505f"
+  integrity sha512-Tfe0U0o/7WunKrOBUmvJeHr2bHO9+DYZ1+SF85N+GSAFDqNkhVl53PNY/Fm+IaKnXSIO5/c4RmPmEdRaBRPMWQ==
+  dependencies:
+    custom-video-element "^0.0.2"
+    hls.js "^0.13.2"
+
+hls.js@^0.13.2:
+  version "0.13.2"
+  resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-0.13.2.tgz#3e7dd28e3787c69c6aba42b64b11eb2c3c8c29f1"
+  integrity sha512-sIg2t4uGpWQLzuK1Iid9614WOKqxj4OYg+EbFbhhTDCsxpENBN+Du3yBFnoi+a83DuOOHdiQd1ydnti9loSGXw==
+  dependencies:
+    eventemitter3 "3.1.0"
+    url-toolkit "^2.1.6"
+
+hls.js@^1.3.1:
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/hls.js/-/hls.js-1.3.1.tgz#2e43949aeaee8f3d54cabd7c4c1a9a718a03e7c2"
+  integrity sha512-6f4Qyrfj9sNUWMzNFKruqeD2KdisOwQ1GQJqnWAgMQ1hequlFK7e2dmF9qQD3mF/RI76hvztCMBptlPb+HcDow==
 
 hoist-non-react-statics@^3.1.0, hoist-non-react-statics@^3.3.0:
   version "3.3.2"
@@ -14477,10 +14508,10 @@ slice-ansi@^4.0.0:
     astral-regex "^2.0.0"
     is-fullwidth-code-point "^3.0.0"
 
-smpte-timecode@^1.2.3:
-  version "1.2.3"
-  resolved "https://registry.yarnpkg.com/smpte-timecode/-/smpte-timecode-1.2.3.tgz#272ac8826724ce793d956109cfd3982b2f6b1893"
-  integrity sha512-6U+vdStmprzmpzEWS+9pw8GfiChBcMmJOdJxBjaXlGJhB9U/jcQhvh0buxJzEfhuX8E0OfYJy4hayBgAO92dBg==
+smpte-timecode@^1.3.2:
+  version "1.3.2"
+  resolved "https://registry.yarnpkg.com/smpte-timecode/-/smpte-timecode-1.3.2.tgz#950be6eb04b1f6525d232d02e3b7ccf3c29c4dca"
+  integrity sha512-pCeYGRRWRVjQP5UgLyIEeDj+I2xzUNdJQ4ONqBNKucR+K/Z9BXt9NhkFu5IZP3MqxB/QPvhI0e5cYFgk8zE3Vg==
 
 snake-case@^3.0.4:
   version "3.0.4"
@@ -15424,6 +15455,11 @@ uri-js@^4.2.2:
   integrity sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==
   dependencies:
     punycode "^2.1.0"
+
+url-toolkit@^2.1.6:
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/url-toolkit/-/url-toolkit-2.2.5.tgz#58406b18e12c58803e14624df5e374f638b0f607"
+  integrity sha512-mtN6xk+Nac+oyJ/PrI7tzfmomRVNFIWKUbG8jdYFt52hxbiReFAXIjYskvu64/dvuW71IcB7lV8l0HvZMac6Jg==
 
 url@^0.11.0:
   version "0.11.0"

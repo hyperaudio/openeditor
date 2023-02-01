@@ -28,7 +28,7 @@ import { AutoComplete } from 'antd';
 // import RefAutoComplete from 'antd/lib/auto-complete';
 import { nanoid } from 'nanoid';
 
-import { darkModeAtom, measureAtom } from '../../atoms';
+import { darkModeAtom, measureAtom, showFullTimecodeAtom } from '../../atoms';
 
 import PlayheadDecorator from './PlayheadDecorator';
 import reducer from './reducer';
@@ -72,6 +72,7 @@ interface EditorProps {
   playing: boolean;
   pause: () => void;
   readOnly?: boolean;
+  frameRate?: number;
 }
 
 const Editor = ({
@@ -90,6 +91,7 @@ const Editor = ({
   playing,
   pause,
   readOnly,
+  frameRate,
   ...rest
 }: EditorProps): JSX.Element => {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -300,7 +302,7 @@ const Editor = ({
           .getCurrentContent()
           .getBlocksAsArray()
           .map((block: ContentBlock) => (
-            <BlockStyle key={block.getKey()} {...{ block, speakers, time }} />
+            <BlockStyle key={block.getKey()} {...{ block, speakers, time, frameRate }} />
           ))}
         <EditorStyleElement />
       </div>
@@ -412,17 +414,23 @@ const BlockStyle = ({
   speakers,
   time,
   activeInterval,
+  frameRate,
 }: {
   block: ContentBlock;
   speakers: any;
   time: number;
   activeInterval?: any[];
+  frameRate?: number;
 }): JSX.Element => {
   const [darkMode] = useAtom(darkModeAtom);
+  const [showFullTimecode] = useAtom(showFullTimecodeAtom);
   const speaker = useMemo(() => speakers?.[block.getData().get('speaker')]?.name ?? '', [block, speakers]);
   const start = useMemo(() => block.getData().get('start'), [block]);
   const end = useMemo(() => block.getData().get('end'), [block]);
-  const tc = useMemo(() => timecode(start), [start]);
+  const tc = useMemo(
+    () => timecode({ seconds: start, partialTimecode: !showFullTimecode, frameRate }),
+    [start, showFullTimecode, frameRate],
+  );
   // const intersects = useMemo(() => intersection([start, end], activeInterval), [start, end, activeInterval]);
 
   return (
@@ -582,12 +590,21 @@ const EditorStyleElement = (): JSX.Element => {
   return <style scoped>{style}</style>;
 };
 
-const timecode = (seconds = 0, frameRate = 25, dropFrame = false): string =>
-  TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
-    .toString()
-    .split(':')
-    .slice(0, 3)
-    .join(':');
+const timecode = ({ seconds = 0, frameRate = 1000, dropFrame = false, partialTimecode = false }): string => {
+  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+  // hh:mm:ss
+  if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
+
+  // hh:mm:ss.mmmm
+  if (frameRate === 1000) {
+    const [hh, mm, ss, mmm] = tc.split(':');
+    if (mmm.length === 1) return `${hh}:${mm}:${ss}.${mmm}00`;
+    if (mmm.length === 2) return `${hh}:${mm}:${ss}.${mmm}0`;
+    return `${hh}:${mm}:${ss}.${mmm}`;
+  }
+
+  return tc;
+};
 
 const wordAligner = (
   words: { [key: string]: any }[],

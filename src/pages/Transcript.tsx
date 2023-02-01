@@ -8,7 +8,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import ReactPlayer from 'react-player';
-import { Layout, Col, Row, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider } from 'antd';
+import { Layout, Col, Row, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider, Affix } from 'antd';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
 import EditOutlined from '@ant-design/icons/EditOutlined';
 import { PageContainer } from '@ant-design/pro-components';
@@ -16,9 +16,9 @@ import axios from 'axios';
 import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 
-import { darkModeAtom } from '../atoms';
+import { darkModeAtom, transportAtTopAtom } from '../atoms';
 import { User, Transcript } from '../models';
-import Player from '../components/Player';
+import Player from '../components/Player2';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/StatusCard';
 import DataCard from '../components/DataCard';
@@ -39,6 +39,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const { uuid } = params as Record<string, string>;
 
   const [darkMode] = useAtom(darkModeAtom);
+  const [transportAtTop] = useAtom(transportAtTopAtom);
 
   const transcript = useMemo(() => transcripts?.find(({ id }) => id === uuid), [transcripts, uuid]);
   const { step } = useMemo(() => {
@@ -140,11 +141,22 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
   const openExportDrawer = useCallback(() => setExportDrawerVisible(true), []);
   const closeExportDrawer = useCallback(() => setExportDrawerVisible(false), []);
 
-  const ref = useRef<ReactPlayer | null>() as MutableRefObject<ReactPlayer>;
+  // const ref = useRef<ReactPlayer | null>() as MutableRefObject<ReactPlayer>;
+  // const ref = useRef<HTMLMediaElement | HTMLVideoElement>() as MutableRefObject<HTMLMediaElement | HTMLVideoElement>;
+  const seekToRef = useRef<(time: number) => void>() as MutableRefObject<(time: number) => void>;
   const [time, setTime] = useState(0);
 
   const noKaraoke = false;
-  const seekTo = useCallback((time: number) => ref.current?.seekTo(time, 'seconds'), []);
+  const seekTo = useCallback(
+    (time: number) => {
+      // console.log('ref.current', ref.current);
+      // if ((ref.current as any).seekTo) {
+      //   (ref.current as any).seekTo(time, 'seconds');
+      // } else (ref.current as any).currentTime = time;
+      seekToRef.current(time);
+    },
+    [seekToRef],
+  );
   const [playing, setPlaying] = useState(false);
   const play = useCallback(() => setPlaying(true), []);
   const pause = useCallback(() => setPlaying(false), []);
@@ -156,6 +168,31 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
 
     return (steps[transcodeIndex] as any)?.data?.audio?.key;
   }, [transcript]);
+
+  const aspectRatio = useMemo(() => {
+    const videoStream = (transcript as any)?.status?.steps?.[0]?.data?.ffprobe?.streams.find(
+      (stream: any) => stream.codec_type === 'video',
+    );
+
+    // eslint-disable-next-line dot-notation
+    if (videoStream?.['display_aspect_ratio']) return videoStream?.['display_aspect_ratio']?.replace(':', '/');
+    if (videoStream?.width && videoStream?.height) return `${videoStream?.width}/${videoStream?.height}`;
+
+    return '16/9';
+  }, [transcript]);
+
+  const frameRate = useMemo(() => {
+    const videoStream = (transcript as any)?.status?.steps?.[0]?.data?.ffprobe?.streams.find(
+      (stream: any) => stream.codec_type === 'video',
+    );
+
+    // eslint-disable-next-line dot-notation, no-eval
+    if (videoStream?.['r_frame_rate']) return eval(videoStream?.['r_frame_rate']);
+
+    return 1000;
+  }, [transcript]);
+
+  // console.log({ aspectRatio, frameRate });
 
   const itemRender = useCallback((route: any, params: any, routes: any[], paths: any[]) => {
     const last = false; // routes.indexOf(route) === routes.length - 1;
@@ -202,7 +239,20 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
           </Space>
         }
       />
-      <Player {...{ audioKey, playing, play, pause, setTime, ref }} />
+      {/* <Affix offsetTop={0}>
+        <Player {...{ audioKey, playing, play, pause, setTime }} seekTo={seekToRef} />
+      </Affix> */}
+      {/* <div style={{ position: 'fixed', left: 0, bottom: '0', width: '100%', zIndex: 1000 }}>
+        <Player {...{ audioKey, playing, play, pause, setTime }} seekTo={seekToRef} />
+      </div> */}
+      <div
+        style={
+          transportAtTop
+            ? { position: 'sticky', left: 0, top: '0', width: '100%', zIndex: 1000 }
+            : { position: 'fixed', left: 0, bottom: '0', width: '100%', zIndex: 1000 }
+        }>
+        <Player {...{ audioKey, playing, play, pause, setTime, aspectRatio, frameRate }} seekTo={seekToRef} />
+      </div>
       <Content>
         <Row
           style={{
@@ -215,7 +265,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
             ) : initialState ? (
               <Editor
-                {...{ initialState, time, seekTo, speakers, setSpeakers, playing, play, pause }}
+                {...{ initialState, time, seekTo, speakers, setSpeakers, playing, play, pause, frameRate }}
                 autoScroll={false}
                 onChange={setDraft}
                 playheadDecorator={noKaraoke ? null : undefined}
@@ -229,7 +279,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         </Row>
       </Content>
       <Footer />
-      <BackTop />
+      <BackTop style={{ bottom: 150 }} />
       <Drawer
         destroyOnClose
         title={transcript?.title}
