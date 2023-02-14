@@ -1,11 +1,30 @@
-import React, { useMemo, useState, useCallback, useEffect, forwardRef } from 'react';
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/click-events-have-key-events */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react/self-closing-comp */
+/* eslint-disable jsx-a11y/media-has-caption */
+import React, { useMemo, useState, useCallback, useEffect, useRef, forwardRef, MutableRefObject } from 'react';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import Draggable from 'react-draggable';
-import ReactPlayer from 'react-player';
+import Hls from 'hls.js';
+import TC, { FRAMERATE } from 'smpte-timecode';
+import {
+  MediaController,
+  MediaControlBar,
+  MediaTimeRange,
+  MediaTimeDisplay,
+  MediaVolumeRange,
+  MediaPlayButton,
+  MediaSeekBackwardButton,
+  MediaSeekForwardButton,
+  MediaMuteButton,
+  MediaPipButton,
+  MediaPlaybackRateButton,
+} from 'media-chrome/dist/react';
 import axios from 'axios';
 
-import { playerPositionAtom, darkModeAtom } from '../atoms';
+import { playerPositionAtom, darkModeAtom, showFullTimecodeAtom } from '../atoms';
 
 interface PlayerProps {
   audioKey: string | null;
@@ -13,14 +32,24 @@ interface PlayerProps {
   play: () => void;
   pause: () => void;
   setTime: (time: number) => void;
+  seekTo: MutableRefObject<(time: number) => void>;
+  aspectRatio: string;
+  frameRate: number;
 }
 
-const Player = forwardRef<ReactPlayer, PlayerProps>(
-  ({ audioKey, playing, play, pause, setTime }: PlayerProps, ref): JSX.Element | null => {
-    // const audio = false;
-
+const Player = forwardRef<HTMLMediaElement | HTMLVideoElement | any, PlayerProps>(
+  (
+    { audioKey, playing, play, pause, setTime, seekTo, aspectRatio = '16/9', frameRate = 25 }: PlayerProps,
+    ref,
+  ): JSX.Element | null => {
     const [darkMode] = useAtom(darkModeAtom);
+    const [showFullTimecode] = useAtom(showFullTimecodeAtom);
     const [position, setPosition] = useAtom(playerPositionAtom);
+
+    const [pip, setPip] = useState<boolean>(false);
+    const [duration, setDuration] = useState<number>(0);
+    const [currentTime, setCurrentTime] = useState<number>(0);
+
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [audioHLSUrl, setAudioHLSUrl] = useState<string | null>(null);
     const [videoHLSUrl, setVideoHLSUrl] = useState<string | null>(null);
@@ -122,66 +151,260 @@ const Player = forwardRef<ReactPlayer, PlayerProps>(
       [setPosition],
     );
 
-    const config = useMemo(
-      () => ({
-        forceAudio: !videoHLSUrl,
-        forceVideo: videoHLSUrl,
-        forceHLS: audioHLSUrl || videoHLSUrl,
-        file: {
-          attributes: {
-            // poster: 'https://via.placeholder.com/720x576.png?text=4:3',
-            controlsList: 'nodownload',
-          },
-        },
-      }),
-      [audioHLSUrl, videoHLSUrl],
-    );
+    // const config = useMemo(
+    //   () => ({
+    //     forceAudio: !videoHLSUrl,
+    //     forceVideo: videoHLSUrl,
+    //     forceHLS: audioHLSUrl || videoHLSUrl,
+    //     file: {
+    //       attributes: {
+    //         // poster: 'https://via.placeholder.com/720x576.png?text=4:3',
+    //         controlsList: 'nodownload',
+    //       },
+    //     },
+    //   }),
+    //   [audioHLSUrl, videoHLSUrl],
+    // );
 
-    const onDuration = useCallback((duration: number) => {
-      console.log({ duration });
-    }, []);
+    // const onDuration = useCallback((duration: number) => {
+    //   console.log({ duration });
+    // }, []);
 
     const url = useMemo(() => videoHLSUrl ?? audioHLSUrl ?? audioUrl, [audioHLSUrl, audioUrl, videoHLSUrl]);
     const audio = useMemo(() => !videoHLSUrl, [videoHLSUrl]);
 
-    const onProgress = useCallback(({ playedSeconds }: { playedSeconds: number }) => setTime(playedSeconds), [setTime]);
+    const mediaRef = useRef<HTMLMediaElement | HTMLVideoElement>() as any; // MutableRefObject<HTMLMediaElement>;
+    // const audioRef = useRef<HTMLAudioElement>() as MutableRefObject<HTMLAudioElement>;
+    // const videoRef = useRef<HTMLVideoElement>() as MutableRefObject<HTMLVideoElement>;
+
+    useEffect(() => {
+      if (!mediaRef.current) return;
+      if (!videoHLSUrl && !audioHLSUrl) {
+        mediaRef.current.src = audioUrl;
+        return;
+      }
+
+      // if (!Hls.isSupported()) return;
+      const hls = new Hls();
+      if (audio) {
+        hls.loadSource(audioHLSUrl ?? videoHLSUrl ?? audioUrl ?? '');
+      } else {
+        hls.loadSource(videoHLSUrl ?? audioHLSUrl ?? audioUrl ?? ''); // TODO empty video url
+      }
+      if (mediaRef) hls.attachMedia((mediaRef as any).current);
+    }, [mediaRef, videoHLSUrl, audioHLSUrl, audioUrl, audio]);
+
+    useEffect(() => {
+      if (!mediaRef.current) return;
+
+      if (playing) {
+        (mediaRef as any).current.play();
+      } else {
+        (mediaRef as any).current.pause();
+      }
+    }, [mediaRef.current, playing]);
+
+    useEffect(() => {
+      if (!mediaRef.current) return;
+
+      const mediaEl = (mediaRef as any).current;
+
+      mediaEl.addEventListener('play', () => play());
+      mediaEl.addEventListener('pause', () => pause());
+      mediaEl.addEventListener('timeupdate', () => {
+        // console.log('timeupdate');
+        setTime(mediaEl.currentTime);
+        setCurrentTime(mediaEl.currentTime);
+      });
+      mediaEl.addEventListener('durationchange', () => setDuration(mediaEl.duration));
+      mediaEl.addEventListener('enterpictureinpicture', () => setPip(true));
+      mediaEl.addEventListener('leavepictureinpicture', () => setPip(false));
+
+      // eslint-disable-next-line no-param-reassign
+      seekTo.current = (time: number) => {
+        mediaEl.currentTime = time;
+      };
+    }, [mediaRef.current, play, pause, setTime, seekTo]);
+
+    const [width, setWidth] = useState(300);
+    // eslint-disable-next-line no-eval
+    // const [height, setHeight] = useState(300 / eval(aspectRatio));
+    // eslint-disable-next-line no-eval
+    const height = useMemo(() => width / eval(aspectRatio), [width, aspectRatio]);
+
+    // const containerRef = useRef<HTMLDivElement>() as MutableRefObject<HTMLDivElement>;
+    // useEffect(() => {
+    //   if (!containerRef.current) return;
+    //   // get container size
+    //   const { width, height } = containerRef.current.getBoundingClientRect();
+    //   setWidth(width);
+    //   setHeight(height);
+    // }, [containerRef.current]);
 
     return url ? (
-      <div style={{ position: 'fixed', top: 0, height: 0, zIndex: 999 }}>
-        <Draggable defaultPosition={position} onStop={handleDragStop} handle=".handle">
-          <div
-            className="handle"
-            style={{
-              width: '300px',
-              backgroundColor: audio && !darkMode ? 'white' : 'black',
-              padding: '6px',
-              zIndex: 999,
-              boxShadow: '0 0 15px gray',
-              aspectRatio: audio ? '16/3' : '16/9',
-              cursor: 'move',
-            }}>
-            <ReactPlayer
-              key={url}
-              controls
-              {...{ ref, url, config, playing, onDuration, onProgress }}
-              onPlay={play}
-              onPause={pause}
-              progressInterval={100}
-              width="100%"
-              height="100%"
-            />
-          </div>
-        </Draggable>
-        <style scoped>
-          {`
+      <>
+        <div style={{ position: 'fixed', top: 0, height: 0, zIndex: 999, display: audio || pip ? 'none' : 'block' }}>
+          <Draggable defaultPosition={position} onStop={handleDragStop} handle=".handle">
+            <div
+              // ref={containerRef}
+              className="handle"
+              // onClick={e => {
+              //   e.stopPropagation();
+              //   e.preventDefault();
+              // }}
+              style={{
+                width: '300px',
+                backgroundColor: audio && !darkMode ? 'white' : 'black',
+                // padding: '6px',
+                zIndex: 999,
+                boxShadow: '0 0 15px gray',
+                aspectRatio: audio ? '16/3' : aspectRatio,
+                cursor: 'move',
+              }}>
+              <MediaController
+                id="controller"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  aspectRatio: audio ? '16/3' : aspectRatio,
+                  pointerEvents: 'none',
+                }}>
+                <video slot="media" ref={mediaRef} style={{ width, height, aspectRatio: audio ? '16/3' : aspectRatio }}>
+                  {/* <track label="English" kind="captions" srclang="en" src="./vtt/en-cc.vtt" /> */}
+                  {/* <track
+                        label="thumbnails"
+                        default
+                        kind="metadata"
+                        src="https://image.mux.com/A3VXy02VoUinw01pwyomEO3bHnG4P32xzV7u1j1FSzjNg/storyboard.vtt"
+                      /> */}
+                </video>
+                <MediaControlBar mediaController="controller">
+                  <MediaPlayButton />
+                  <MediaSeekBackwardButton seek-offset="5" />
+                  <MediaSeekBackwardButton seek-offset={1 / frameRate}>
+                    <svg slot="backward" aria-hidden="true" viewBox="0 0 20 24">
+                      <defs>
+                        <style>{`.text{font-size:8px;font-family:Arial-BoldMT, Arial;font-weight:700;}`}</style>
+                      </defs>
+                      <text className="text value" transform="translate(2.18 19.87)">
+                        F
+                      </text>
+                      <path d="M10 6V3L4.37 7 10 10.94V8a5.54 5.54 0 0 1 1.9 10.48v2.12A7.5 7.5 0 0 0 10 6Z"></path>
+                    </svg>
+                  </MediaSeekBackwardButton>
+                  <MediaSeekForwardButton seek-offset={1 / frameRate}>
+                    <svg slot="forward" aria-hidden="true" viewBox="0 0 20 24">
+                      <defs>
+                        <style>{`.text{font-size:8px;font-family:Arial-BoldMT, Arial;font-weight:700;}`}</style>
+                      </defs>
+                      <text className="text value" transform="translate(8.9 19.87)">
+                        F
+                      </text>
+                      <path d="M10 6V3l5.61 4L10 10.94V8a5.54 5.54 0 0 0-1.9 10.48v2.12A7.5 7.5 0 0 1 10 6Z"></path>
+                    </svg>
+                  </MediaSeekForwardButton>
+                  <MediaSeekForwardButton seek-offset="5" />
+                  <span className="tc">
+                    {timecode({ seconds: currentTime, partialTimecode: !showFullTimecode, frameRate })}
+                  </span>
+                </MediaControlBar>
+
+                {/* <ReactPlayer
+                  slot="media"
+                  key={url}
+                  controls
+                  {...{ ref, url, config, playing, onDuration, onProgress }}
+                  onPlay={play}
+                  onPause={pause}
+                  progressInterval={100}
+                  width="100%"
+                  height="100%"
+                /> */}
+              </MediaController>
+            </div>
+          </Draggable>
+          <style scoped>
+            {`
             audio {
               background-color: ${darkMode ? 'black' : 'white'};
             }
           `}
+          </style>
+        </div>
+        <MediaControlBar mediaController="controller" style={{ width: '100%' }}>
+          <MediaPlayButton />
+          <MediaSeekBackwardButton seek-offset="5" />
+          <MediaSeekBackwardButton seek-offset={1 / frameRate}>
+            <svg slot="backward" aria-hidden="true" viewBox="0 0 20 24">
+              <defs>
+                <style>{`.text{font-size:8px;font-family:Arial-BoldMT, Arial;font-weight:700;}`}</style>
+              </defs>
+              <text className="text value" transform="translate(2.18 19.87)">
+                F
+              </text>
+              <path d="M10 6V3L4.37 7 10 10.94V8a5.54 5.54 0 0 1 1.9 10.48v2.12A7.5 7.5 0 0 0 10 6Z"></path>
+            </svg>
+          </MediaSeekBackwardButton>
+          <MediaSeekForwardButton seek-offset={1 / frameRate}>
+            <svg slot="forward" aria-hidden="true" viewBox="0 0 20 24">
+              <defs>
+                <style>{`.text{font-size:8px;font-family:Arial-BoldMT, Arial;font-weight:700;}`}</style>
+              </defs>
+              <text className="text value" transform="translate(8.9 19.87)">
+                F
+              </text>
+              <path d="M10 6V3l5.61 4L10 10.94V8a5.54 5.54 0 0 0-1.9 10.48v2.12A7.5 7.5 0 0 1 10 6Z"></path>
+            </svg>
+          </MediaSeekForwardButton>
+          <MediaSeekForwardButton seek-offset="5" />
+          <span className="tc">
+            {timecode({ seconds: currentTime, partialTimecode: !showFullTimecode, frameRate })}
+          </span>
+          <MediaTimeRange />
+          {/* <MediaTimeDisplay showDuration /> */}
+          <span className="tc">{timecode({ seconds: duration, partialTimecode: !showFullTimecode, frameRate })}</span>
+          <MediaPlaybackRateButton />
+          <MediaVolumeRange />
+          <MediaPipButton />
+        </MediaControlBar>
+        <style>
+          {`span.tc {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            vertical-align: middle;
+            box-sizing: border-box;
+            background: var(--media-control-background, rgba(20,20,30, 0.7));
+
+            padding: var(--media-control-padding, 10px);
+
+            font-size: 14px;
+            line-height: var(--media-text-content-height, var(--media-control-height, 24px));
+            /* font-family: Arial, sans-serif; */
+            text-align: center;
+            color: #ffffff;
+            pointer-events: auto;
+          }`}
         </style>
-      </div>
+      </>
     ) : null;
   },
 );
+
+const timecode = ({ seconds = 0, frameRate = 1000, dropFrame = false, partialTimecode = false }): string => {
+  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+  // hh:mm:ss
+  if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
+
+  // hh:mm:ss.mmmm
+  if (frameRate === 1000) {
+    const [hh, mm, ss, mmm] = tc.split(':');
+    if (mmm.length === 1) return `${hh}:${mm}:${ss}.${mmm}00`;
+    if (mmm.length === 2) return `${hh}:${mm}:${ss}.${mmm}0`;
+    return `${hh}:${mm}:${ss}.${mmm}`;
+  }
+
+  return tc;
+};
 
 export default Player;

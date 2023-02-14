@@ -7,8 +7,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObj
 import { useParams, Link } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
-import ReactPlayer from 'react-player';
-import { Layout, Col, Row, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider, Affix } from 'antd';
+import { Layout, Col, Row, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider } from 'antd';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
 import EditOutlined from '@ant-design/icons/EditOutlined';
 import { PageContainer } from '@ant-design/pro-components';
@@ -18,11 +17,12 @@ import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
 import { User, Transcript } from '../models';
-import Player from '../components/Player2';
+import Player from '../components/Player';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/StatusCard';
 import DataCard from '../components/DataCard';
 import ExportCard from '../components/ExportCard';
+import MetadataCard from '../components/MetadataCard';
 import Footer from '../components/Footer';
 
 const { Content } = Layout;
@@ -239,12 +239,6 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
           </Space>
         }
       />
-      {/* <Affix offsetTop={0}>
-        <Player {...{ audioKey, playing, play, pause, setTime }} seekTo={seekToRef} />
-      </Affix> */}
-      {/* <div style={{ position: 'fixed', left: 0, bottom: '0', width: '100%', zIndex: 1000 }}>
-        <Player {...{ audioKey, playing, play, pause, setTime }} seekTo={seekToRef} />
-      </div> */}
       <div
         style={
           transportAtTop
@@ -288,7 +282,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         open={metaDrawerVisible}
         closable
         width={600}>
-        metadata editor
+        <MetadataCard {...{ transcript, user, speakers, setSpeakers }} />
       </Drawer>
       <Drawer
         destroyOnClose

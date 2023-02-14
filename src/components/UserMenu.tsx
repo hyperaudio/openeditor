@@ -1,4 +1,4 @@
-/* eslint-disable react/jsx-curly-brace-presence */
+/* eslint-disable react/jsx-curly-brace-presence, jsx-a11y/label-has-associated-control */
 import React, { useCallback, useMemo, useState } from 'react';
 import { useAtom } from 'jotai';
 import { Avatar, Dropdown, Menu, Space, Switch, Drawer, InputNumber } from 'antd';
@@ -96,22 +96,30 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
       </Dropdown>
       <Drawer title="Settings" placement="right" onClose={closeSettingsDrawer} open={settingsDrawerVisible} width={600}>
         <Space direction="vertical" size="large">
-          <Space>
-            <Switch size="small" checked={darkMode} onChange={handleDarkModeChange} disabled />
-            Dark mode
-          </Space>
-          <Space>
-            <Switch size="small" checked={transportAtTop} onChange={handleTransportChange} />
-            Media transport docked at top
-          </Space>
-          <Space>
-            <Switch size="small" checked={showFullTimecode} onChange={handleShowFullTimecodeChange} />
-            Show full timecode
-          </Space>
-          <Space>
-            <InputNumber addonAfter="em" min={30} max={80} step={1} value={measure} onChange={handleMeasureChange} />
-            editor measure (line length)
-          </Space>
+          <label>
+            <Space>
+              <Switch size="small" checked={darkMode} onChange={handleDarkModeChange} disabled />
+              Dark mode
+            </Space>
+          </label>
+          <label>
+            <Space>
+              <Switch size="small" checked={transportAtTop} onChange={handleTransportChange} />
+              Media transport docked at top
+            </Space>
+          </label>
+          <label>
+            <Space>
+              <Switch size="small" checked={showFullTimecode} onChange={handleShowFullTimecodeChange} />
+              Show full timecode
+            </Space>
+          </label>
+          <label>
+            <Space>
+              <InputNumber addonAfter="em" min={30} max={80} step={1} value={measure} onChange={handleMeasureChange} />
+              editor measure (line length)
+            </Space>
+          </label>
         </Space>
       </Drawer>
     </>
