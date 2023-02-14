@@ -146,10 +146,16 @@ const Player = forwardRef<HTMLMediaElement | HTMLVideoElement | any, PlayerProps
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (e: any, data: any) => {
         const { x, y } = data;
-        setPosition({ x, y });
+        // setPosition({ x, y });
+        setPosition({ x: (x * 100) / window.innerWidth, y: (y * 100) / window.innerHeight });
       },
       [setPosition],
     );
+
+    useEffect(() => {
+      if (position.x > 80) setPosition({ x: 2, y: 12 });
+      if (position.y > 80) setPosition({ x: 2, y: 12 });
+    }, [position, setPosition]);
 
     // const config = useMemo(
     //   () => ({
@@ -241,10 +247,15 @@ const Player = forwardRef<HTMLMediaElement | HTMLVideoElement | any, PlayerProps
     //   setHeight(height);
     // }, [containerRef.current]);
 
+    const defaultPosition = useMemo(() => {
+      const { x, y } = position;
+      return { x: (x * window.innerWidth) / 100, y: (y * window.innerHeight) / 100 };
+    }, [position]);
+
     return url ? (
       <>
         <div style={{ position: 'fixed', top: 0, height: 0, zIndex: 999, display: audio || pip ? 'none' : 'block' }}>
-          <Draggable defaultPosition={position} onStop={handleDragStop} handle=".handle">
+          <Draggable defaultPosition={defaultPosition} onStop={handleDragStop} handle=".handle">
             <div
               // ref={containerRef}
               className="handle"

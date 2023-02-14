@@ -19,7 +19,7 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
   const [measure, setMeasure] = useAtom(measureAtom);
   const [transportAtTop, setTransportAtTop] = useAtom(transportAtTopAtom);
   const [showFullTimecode, setShowFullTimecode] = useAtom(showFullTimecodeAtom);
-  const [playerPosition, setPlayerPosition] = useAtom(playerPositionAtom);
+  // const [playerPosition, setPlayerPosition] = useAtom(playerPositionAtom);
 
   const emailHash = useMemo(() => (user ? hash.MD5(user.email.trim().toLowerCase()) : null), [user]);
 
@@ -50,7 +50,7 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
     },
     [setMeasure],
   );
-  const resetPlayerPosition = useCallback(() => setPlayerPosition({ x: 2, y: 12 }), [setPlayerPosition]);
+  // const resetPlayerPosition = useCallback(() => setPlayerPosition({ x: 2, y: 12 }), [setPlayerPosition]);
 
   return (
     <>
