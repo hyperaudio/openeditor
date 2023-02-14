@@ -681,16 +681,43 @@ const convertTranscript = ({
     };
   });
 
+  // "fold" speakers
+  const contiguousBlocks = blocks.reduce((acc, block, i) => {
+    if (i === 0) return [block];
+    const prev = acc.pop();
+
+    if (prev.data.speaker === block.data.speaker) {
+      const stt = [
+        ...prev.data.stt,
+        ...block.data.stt.map(item => ({ ...item, offset: item.offset + prev.text.length + 1 })),
+      ];
+
+      const megablock = {
+        key: prev.key,
+        text: [prev.text, block.text].join(' '),
+        data: {
+          speaker: prev.data.speaker,
+          start: stt[0].start,
+          end: stt[stt.length - 1].end,
+          items: stt,
+          stt,
+        },
+        entityRanges: [],
+        inlineStyleRanges: [],
+      };
+
+      return [...acc, megablock];
+    }
+
+    return [...acc, prev, block];
+  }, []);
+
+  // split every 7 "sentences"
+
   const t = {
     speakers,
-    blocks: blocks,
+    blocks: contiguousBlocks,
   };
 
   return t;
 };
-
-// const nanoid = size => {
-//   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-//   const id = [...Array(size)].map(() => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
-//   return id;
-// };
