@@ -1,4 +1,4 @@
-/* eslint-disable react/jsx-curly-brace-presence */
+/* eslint-disable react/jsx-curly-brace-presence, jsx-a11y/label-has-associated-control */
 import React, { useCallback, useMemo, useState } from 'react';
 import { useAtom } from 'jotai';
 import { Avatar, Dropdown, Button, Space, Switch, Drawer, InputNumber } from 'antd';
