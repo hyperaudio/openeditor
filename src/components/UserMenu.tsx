@@ -1,12 +1,12 @@
 /* eslint-disable react/jsx-curly-brace-presence */
 import React, { useCallback, useMemo, useState } from 'react';
 import { useAtom } from 'jotai';
-import { Avatar, Dropdown, Menu, Space, Switch, Drawer, InputNumber } from 'antd';
+import { Avatar, Dropdown, Button, Space, Switch, Drawer, InputNumber } from 'antd';
 import { DownOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
 import hash from 'object-hash';
 
 import { User } from '../models';
-import { darkModeAtom, measureAtom, transportAtTopAtom, showFullTimecodeAtom } from '../atoms';
+import { darkModeAtom, measureAtom, transportAtTopAtom, showFullTimecodeAtom, playerPositionAtom } from '../atoms';
 
 interface UserMenuProps {
   user: User | undefined;
@@ -19,6 +19,7 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
   const [measure, setMeasure] = useAtom(measureAtom);
   const [transportAtTop, setTransportAtTop] = useAtom(transportAtTopAtom);
   const [showFullTimecode, setShowFullTimecode] = useAtom(showFullTimecodeAtom);
+  const [playerPosition, setPlayerPosition] = useAtom(playerPositionAtom);
 
   const emailHash = useMemo(() => (user ? hash.MD5(user.email.trim().toLowerCase()) : null), [user]);
 
@@ -49,6 +50,7 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
     },
     [setMeasure],
   );
+  const resetPlayerPosition = useCallback(() => setPlayerPosition({ x: 2, y: 12 }), [setPlayerPosition]);
 
   return (
     <>
@@ -112,6 +114,9 @@ const UserMenu = ({ user, groups, signOut }: UserMenuProps): JSX.Element => {
             <InputNumber addonAfter="em" min={30} max={80} step={1} value={measure} onChange={handleMeasureChange} />
             editor measure (line length)
           </Space>
+          {/* <Space>
+            <Button onClick={resetPlayerPosition}>Reset player position</Button>
+          </Space> */}
         </Space>
       </Drawer>
     </>

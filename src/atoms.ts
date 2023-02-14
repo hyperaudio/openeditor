@@ -8,7 +8,7 @@ export const darkModeAtom = atom(false);
 // );
 
 export const measureAtom = atomWithStorage('measure', 55);
-export const playerPositionAtom = atomWithStorage('playerPosition', { x: Math.floor(window.innerWidth / 3), y: 0 });
+export const playerPositionAtom = atomWithStorage('playerPosition', { x: 2, y: 12 });
 export const transportAtTopAtom = atomWithStorage('transportAtTop', true);
 export const showFullTimecodeAtom = atomWithStorage('showFullTimecode', false);
 
