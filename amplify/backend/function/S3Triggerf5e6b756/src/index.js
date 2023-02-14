@@ -23,6 +23,7 @@ import { default as fetch, Request } from 'node-fetch';
 import { nanoid } from 'nanoid';
 import pako from 'pako';
 import ffprobe from 'ffprobe';
+import * as cldrSegmentation from 'cldr-segmentation';
 
 const { Sha256 } = crypto;
 
@@ -682,6 +683,9 @@ const convertTranscript = ({
   });
 
   // "fold" speakers
+  const limit = 7;
+  const suppressions = cldrSegmentation.suppressions.all;
+
   const contiguousBlocks = blocks.reduce((acc, block, i) => {
     if (i === 0) return [block];
     const prev = acc.pop();
@@ -690,7 +694,35 @@ const convertTranscript = ({
       const stt = [
         ...prev.data.stt,
         ...block.data.stt.map(item => ({ ...item, offset: item.offset + prev.text.length + 1 })),
-      ];
+      ].reduce((acc, item, i, arr) => {
+        if (i === 0) {
+          item.sid = nanoid(3); // sentence id
+          item.sno = 1; // sentence number
+          item.smod = item.sno % limit; // number % limit
+          item.sg = nanoid(3); // sentence group
+          return [item];
+        }
+
+        const prev = acc.pop();
+
+        if (cldrSegmentation.sentenceSplit(`${prev.text} ${item.text}`, suppressions).length > 1) {
+          prev.eol = true;
+          item.sid = nanoid(3); // sentence id
+          item.sno = prev.sno + 1; // sentence number
+          item.smod = item.sno % limit; // number % limit
+          item.sg = item.smod === 0 ? nanoid(3) : prev.sg; // sentence group
+        } else {
+          item.sid = prev.sid;
+          item.sno = prev.sno;
+          item.sg = prev.sg;
+        }
+
+        if (i === arr.length - 1) item.eol = true;
+
+        item.smod = item.sno % limit;
+
+        return [...acc, prev, item];
+      }, []);
 
       const megablock = {
         key: prev.key,
@@ -713,10 +745,62 @@ const convertTranscript = ({
   }, []);
 
   // split every 7 "sentences"
+  const sentenceSplitBlocks = contiguousBlocks
+    .reduce((acc, block, i, arr) => {
+      const count = block.data.stt.filter(({ eol }) => eol)?.length ?? 0;
+      // console.log(count);
+      if (count > 7) {
+        const blocks = block.data.stt.reduce((acc, item, i, arr) => {
+          let b;
+          let p = true;
+          if (i === 0 || item.sg !== arr[i - 1].sg) {
+            p = false;
+            b = {
+              key: `b${nanoid(5)}`,
+              data: {
+                speaker: block.data.speaker,
+                stt: [],
+                items: [],
+              },
+              entityRanges: [],
+              inlineStyleRanges: [],
+            };
+          }
+
+          if (!b) b = acc.pop();
+
+          b.data.stt.push(item);
+          b.data.items.push(block.data.items[i]);
+
+          return [...acc, b];
+        }, []);
+
+        return [...acc, ...blocks];
+      }
+
+      return [...acc, block];
+    }, [])
+    .map(block => ({
+      ...block,
+      text: block.data.items.map(({ text }) => text).join(' '),
+      data: {
+        ...block.data,
+        start: block.data.items[0].start,
+        end: block.data.items[block.data.items.length - 1].end,
+        items: block.data.items.map((item, i, arr) => ({
+          ...item,
+          offset: arr.slice(0, i).reduce((acc, { text }) => acc + text.length + 1, 0),
+        })),
+        stt: block.data.stt.map((item, i, arr) => ({
+          ...item,
+          offset: arr.slice(0, i).reduce((acc, { text }) => acc + text.length + 1, 0),
+        })),
+      },
+    }));
 
   const t = {
     speakers,
-    blocks: contiguousBlocks,
+    blocks: sentenceSplitBlocks,
   };
 
   return t;
