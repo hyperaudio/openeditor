@@ -2,12 +2,42 @@ import { ModelInit, MutableModel } from "@aws-amplify/datastore";
 // @ts-ignore
 import { LazyLoading, LazyLoadingDisabled } from "@aws-amplify/datastore";
 
+type FolderMetaData = {
+  readOnlyFields: 'createdAt' | 'updatedAt';
+}
+
 type TranscriptMetaData = {
   readOnlyFields: 'createdAt' | 'updatedAt';
 }
 
 type UserMetaData = {
   readOnlyFields: 'createdAt' | 'updatedAt';
+}
+
+type EagerFolder = {
+  readonly id: string;
+  readonly parent?: string | null;
+  readonly title: string;
+  readonly status: string;
+  readonly metadata: string;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+type LazyFolder = {
+  readonly id: string;
+  readonly parent?: string | null;
+  readonly title: string;
+  readonly status: string;
+  readonly metadata: string;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+export declare type Folder = LazyLoading extends LazyLoadingDisabled ? EagerFolder : LazyFolder
+
+export declare const Folder: (new (init: ModelInit<Folder, FolderMetaData>) => Folder) & {
+  copyOf(source: Folder, mutator: (draft: MutableModel<Folder, FolderMetaData>) => MutableModel<Folder, FolderMetaData> | void): Folder;
 }
 
 type EagerTranscript = {

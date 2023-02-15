@@ -5,6 +5,8 @@
  **************************************************************************/
 
 export { default as studioTheme } from "./studioTheme";
+export { default as FolderCreateForm } from "./FolderCreateForm";
+export { default as FolderUpdateForm } from "./FolderUpdateForm";
 export { default as TranscriptCreateForm } from "./TranscriptCreateForm";
 export { default as TranscriptUpdateForm } from "./TranscriptUpdateForm";
 export { default as UserCreateForm } from "./UserCreateForm";

@@ -3,7 +3,6 @@
   "serviceConfiguration": {
     "apiName": "OpenEditor",
     "serviceName": "AppSync",
-    "gqlSchemaPath": "/tmp/amplify-fea7a6dc-3ecf-432c-8f75-cc15532b98a2/amplify/backend/api/OpenEditor/schema.graphql",
     "defaultAuthType": {
       "mode": "AMAZON_COGNITO_USER_POOLS",
       "cognitoUserPoolId": "authOpenEditor"
