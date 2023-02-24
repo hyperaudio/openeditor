@@ -1,4 +1,14 @@
-type Folder @model @auth(rules: [{allow: private, operations: [read]}, {allow: owner}, {allow: private, provider: iam}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read, create, update]}]) {
+type Folder
+  @model
+  @auth(
+    rules: [
+      { allow: private, operations: [read] }
+      { allow: owner }
+      { allow: private, provider: iam }
+      { allow: groups, groups: ["Admins"], operations: [read, create, update, delete] }
+      { allow: groups, groups: ["Editors"], operations: [read, create, update] }
+    ]
+  ) {
   id: ID!
   parent: String
   title: String!
@@ -6,7 +16,17 @@ type Folder @model @auth(rules: [{allow: private, operations: [read]}, {allow: o
   metadata: AWSJSON!
 }
 
-type Transcript @model @auth(rules: [{allow: private, operations: [read]}, {allow: private, provider: iam}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read, create, update]}, {allow: owner}]) {
+type Transcript
+  @model
+  @auth(
+    rules: [
+      { allow: private, operations: [read] }
+      { allow: private, provider: iam }
+      { allow: groups, groups: ["Admins"], operations: [read, create, update, delete] }
+      { allow: groups, groups: ["Editors"], operations: [read, create, update] }
+      { allow: owner }
+    ]
+  ) {
   id: ID!
   parent: String
   title: String!
@@ -16,7 +36,15 @@ type Transcript @model @auth(rules: [{allow: private, operations: [read]}, {allo
   metadata: AWSJSON!
 }
 
-type User @model @auth(rules: [{allow: private, operations: [read]}, {allow: groups, groups: ["Admins"], operations: [read, update, delete]}, {allow: owner}]) {
+type User
+  @model
+  @auth(
+    rules: [
+      { allow: private, operations: [read] }
+      { allow: groups, groups: ["Admins"], operations: [read, update, delete] }
+      { allow: owner }
+    ]
+  ) {
   id: ID!
   identityId: String!
   cognitoUsername: String!
@@ -24,4 +52,3 @@ type User @model @auth(rules: [{allow: private, operations: [read]}, {allow: gro
   name: String!
   metadata: AWSJSON!
 }
- 

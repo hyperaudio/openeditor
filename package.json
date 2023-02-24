@@ -70,7 +70,7 @@
     "cypress:open": "cypress open",
     "update-languages": "node ./scripts/updateLanguages.js",
     "update-antd.dark.css": "cp ./node_modules/antd/dist/antd.dark.css ./public/style/",
-    "deploy:surge": "yarn build && cp ./build/index.html ./build/200.html && surge build openeditor.surge.sh"
+    "deploy:surge": "yarn build && cp ./build/index.html ./build/200.html && surge build openeditor2.surge.sh"
   },
   "browserslist": {
     "production": [

@@ -23,3 +23,16 @@ span.tc,
 .react-json-view + .react-json-view {
   margin-top: 1em;
 }
+
+.danger-button,
+.danger-button > div {
+  color: #fff;
+  background-color: #f5222d !important;
+  border-color: #f5222d !important;
+}
+
+.danger-button:hover > div {
+  color: #fff;
+  background-color: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+}

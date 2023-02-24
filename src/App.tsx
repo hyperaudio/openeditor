@@ -1,15 +1,16 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable react/jsx-curly-brace-presence */
 /* eslint-disable no-unused-expressions */
 /* eslint-disable react/button-has-type */
 import React, { useState, useEffect, useMemo } from 'react';
-import { Switch, Route } from 'react-router-dom';
+import { Switch, Route, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Auth, DataStore, Hub } from 'aws-amplify';
 import { defaultDarkModeOverride, useAuthenticator } from '@aws-amplify/ui-react';
 import { useAtom } from 'jotai';
 import { useKonami } from 'react-konami-code';
 
-import { User, Transcript } from './models';
+import { User, Transcript, Folder } from './models';
 import { darkModeAtom, debugModeAtom } from './atoms';
 import AuthPage from './pages/Auth';
 import Home from './pages/Home';
@@ -28,6 +29,8 @@ const getUser = async (username: string): Promise<User | undefined> =>
 const getUsers = async (setUsers: (users: User[]) => void): Promise<void> => setUsers(await DataStore.query(User));
 const getTranscripts = async (setTranscripts: (transcripts: Transcript[]) => void): Promise<void> =>
   setTranscripts(await DataStore.query(Transcript));
+const getFolders = async (setFolders: (folders: Folder[]) => void): Promise<void> =>
+  setFolders(await DataStore.query(Folder));
 
 const AppWrapper = (): JSX.Element => {
   const { authStatus } = useAuthenticator(context => [context.user]);
@@ -51,6 +54,7 @@ const App = (): JSX.Element => {
   const [ready, setReady] = useState(false);
   const [users, setUsers] = useState<User[] | undefined>(undefined);
   const [transcripts, setTranscripts] = useState<Transcript[] | undefined>(undefined);
+  const [folders, setFolders] = useState<Folder[] | undefined>(undefined);
 
   const [debugMode, setDebug] = useAtom(debugModeAtom);
   useKonami(() => setDebug(!debugMode));
@@ -69,6 +73,15 @@ const App = (): JSX.Element => {
 
     const subscription = DataStore.observe(Transcript).subscribe(() => getTranscripts(setTranscripts));
     window.addEventListener('online', () => navigator.onLine && getTranscripts(setTranscripts));
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    getFolders(setFolders);
+
+    const subscription = DataStore.observe(Folder).subscribe(() => getFolders(setFolders));
+    window.addEventListener('online', () => navigator.onLine && getFolders(setFolders));
 
     return () => subscription.unsubscribe();
   }, []);
@@ -120,15 +133,50 @@ const App = (): JSX.Element => {
   return (
     <Switch>
       <Route path="/" exact>
-        <Home {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
+        <PageWrapper
+          {...{ user, users, groups, folders, transcripts, userMenu: <UserMenu {...{ user, groups, signOut }} /> }}
+        />
+        {/* <Home {...{ user, groups, folders, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} /> */}
       </Route>
       <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
-        <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} />
+        <PageWrapper
+          {...{ user, users, groups, folders, transcripts, userMenu: <UserMenu {...{ user, groups, signOut }} /> }}
+        />
+        {/* <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} /> */}
       </Route>
       <Route path="*">
         <NotFound />
       </Route>
     </Switch>
+  );
+};
+
+interface PageWrapperProps {
+  user: User | undefined;
+  users: User[] | undefined;
+  groups: string[];
+  folders: Folder[] | undefined;
+  transcripts: Transcript[] | undefined;
+  userMenu: JSX.Element;
+}
+
+const PageWrapper = ({ user, users, groups, folders, transcripts, userMenu }: PageWrapperProps): JSX.Element => {
+  const params = useParams();
+  const { uuid } = params as Record<string, string>;
+
+  console.log({ uuid, folders, transcripts });
+
+  const folder = useMemo(() => folders?.find(({ id }) => id === uuid), [folders, uuid]);
+  const transcript = useMemo(() => transcripts?.find(({ id }) => id === uuid), [transcripts, uuid]);
+
+  useEffect(() => window.scrollTo(0, 0), [uuid]);
+
+  return folder || !uuid ? (
+    <Home {...{ uuid, user, users, groups, folder, folders, transcripts, userMenu }} />
+  ) : transcript ? (
+    <TranscriptPage {...{ uuid, user, groups, folders, transcript, transcripts, userMenu }} />
+  ) : (
+    <NotFound />
   );
 };
 

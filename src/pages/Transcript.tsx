@@ -7,7 +7,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObj
 import { useParams, Link } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
-import { Layout, Col, Row, Drawer, BackTop, Empty, Skeleton, Button, Space, Divider } from 'antd';
+import { Layout, Col, Row, Drawer, FloatButton, Empty, Skeleton, Button, Space, Divider } from 'antd';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
 import EditOutlined from '@ant-design/icons/EditOutlined';
 import { PageContainer } from '@ant-design/pro-components';
@@ -16,7 +16,7 @@ import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
-import { User, Transcript } from '../models';
+import { User, Transcript, Folder } from '../models';
 import Player from '../components/Player';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/StatusCard';
@@ -30,11 +30,12 @@ const { Content } = Layout;
 interface TranscriptPageProps {
   user: User | undefined;
   groups: string[];
+  folders: Folder[] | undefined;
   transcripts: Transcript[] | undefined;
   userMenu: JSX.Element;
 }
 
-const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageProps): JSX.Element => {
+const TranscriptPage = ({ user, groups, folders, transcripts, userMenu }: TranscriptPageProps): JSX.Element => {
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
@@ -194,20 +195,34 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
 
   // console.log({ aspectRatio, frameRate });
 
-  const itemRender = useCallback((route: any, params: any, routes: any[], paths: any[]) => {
-    const last = false; // routes.indexOf(route) === routes.length - 1;
-    return last ? <span>{route.breadcrumbName}</span> : <Link to={paths.join('/')}>{route.breadcrumbName}</Link>;
-  }, []);
+  const folder = useMemo(() => folders?.find(({ id }) => id === transcript?.parent), [folders, transcript]);
+
+  const routes = useMemo(() => {
+    const home = { path: '/', breadcrumbName: 'Home' };
+    if (!folder) return [home];
+
+    const findParents = (f: Folder): Folder[] => {
+      const p = folders?.find(({ id }) => id === f.parent);
+      if (!p) return [];
+
+      return [p, ...findParents(p as Folder)];
+    };
+    const parents = [folder, ...findParents(folder)];
+
+    return [home, ...parents.reverse().map(({ id, title }) => ({ path: `/${id}`, breadcrumbName: title }))];
+  }, [folder, folders]);
+
+  const itemRender = useCallback(
+    (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,
+    [],
+  );
 
   return (
     <Layout>
       <PageContainer
         className="site-page-header"
         breadcrumb={{
-          routes: [
-            { path: '/', breadcrumbName: 'Home' },
-            // { path: `/${uuid}`, breadcrumbName: transcript?.title ?? uuid },
-          ],
+          routes,
           itemRender,
         }}
         title={
@@ -273,7 +288,7 @@ const TranscriptPage = ({ user, groups, transcripts, userMenu }: TranscriptPageP
         </Row>
       </Content>
       <Footer />
-      <BackTop style={{ bottom: 150 }} />
+      <FloatButton.BackTop style={{ bottom: 150 }} />
       <Drawer
         destroyOnClose
         title={transcript?.title}

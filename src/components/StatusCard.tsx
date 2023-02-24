@@ -520,6 +520,7 @@ const Status = ({
   );
 };
 
+// FIXME ignore Folder?
 export const StatusTag = ({ transcript }: { transcript: Transcript }): JSX.Element => {
   const { step, steps = [] } = (transcript.status as unknown as Record<string, any>) ?? { step: 0, steps: [] };
   const { status } = steps[step];

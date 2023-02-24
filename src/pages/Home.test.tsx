@@ -16,7 +16,18 @@ test('renders OpenEditor', () => {
     metadata: '{}',
   });
 
-  render(<Home user={user} groups={[]} userMenu={<span>test</span>} transcripts={[]} />);
+  render(
+    <Home
+      uuid={undefined}
+      user={user}
+      users={[]}
+      groups={[]}
+      userMenu={<span>test</span>}
+      folder={undefined}
+      folders={[]}
+      transcripts={[]}
+    />,
+  );
   const linkElement = screen.getByText(/OpenEditor/i);
   expect(linkElement).toBeInTheDocument();
 });
