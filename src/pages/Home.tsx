@@ -221,8 +221,17 @@ const Home = ({
           </span>
         ),
         defaultSortOrder: 'descend',
-        sorter: (a: Transcript | Folder, b: Transcript | Folder) =>
-          new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime(),
+        // sortr2: (a: Transcript | Folder, b: Transcript | Folder) =>
+        //   new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime(),
+        sorter: (a: Transcript | Folder, b: Transcript | Folder) => {
+          if (a instanceof Folder && b instanceof Transcript) {
+            return 1; // sort a before b
+          }
+          if (a instanceof Transcript && b instanceof Folder) {
+            return -1; // sort b before a
+          }
+          return new Date(a.updatedAt ?? 0).getTime() - new Date(b.updatedAt ?? 0).getTime();
+        },
       },
       {
         title: 'by',
