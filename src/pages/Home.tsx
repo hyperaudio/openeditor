@@ -30,12 +30,14 @@ import DeleteOutlined from '@ant-design/icons/DeleteOutlined';
 import FolderOpenOutlined from '@ant-design/icons/FolderOpenOutlined';
 import FolderAddOutlined from '@ant-design/icons/FolderAddOutlined';
 import FolderTwoTone from '@ant-design/icons/FolderTwoTone';
+import ProjectOutlined from '@ant-design/icons/ProjectOutlined';
+import ProjectTwoTone from '@ant-design/icons/ProjectTwoTone';
 import VideoCameraTwoTone from '@ant-design/icons/VideoCameraTwoTone';
 import AudioTwoTone from '@ant-design/icons/AudioTwoTone';
 import { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '@ant-design/pro-components';
 
-import { User, Transcript, Folder } from '../models';
+import { User, Transcript, Project, Folder } from '../models';
 import StatusCard, { StatusTag, StatusBadge } from '../components/StatusCard';
 import UserAvatar, { UserAvatarGroup } from '../components/UserAvatar';
 import DataCard from '../components/DataCard';
@@ -51,9 +53,13 @@ interface HomeProps {
   users: User[] | undefined;
   groups: string[];
   userMenu: JSX.Element;
+  project: Project | undefined;
+  projects: Project[] | undefined;
   folder: Folder | undefined;
   folders: Folder[] | undefined;
   transcripts: Transcript[] | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  routes: any[];
 }
 
 const Home = ({
@@ -61,10 +67,13 @@ const Home = ({
   user,
   users,
   groups,
+  project,
+  projects = [],
   folder,
   folders = [],
   transcripts = [],
   userMenu,
+  routes = [],
 }: HomeProps): JSX.Element => {
   const history = useHistory();
   const [darkMode] = useAtom(darkModeAtom);
@@ -73,18 +82,20 @@ const Home = ({
   const rows = useMemo(
     () => [
       // eslint-disable-next-line eqeqeq
+      ...projects.filter(({ parent }) => parent == uuid),
+      // eslint-disable-next-line eqeqeq
       ...folders.filter(({ parent }) => parent == uuid),
       // eslint-disable-next-line eqeqeq
       ...transcripts.filter(({ parent }) => parent == uuid),
     ],
-    [folders, transcripts, uuid],
+    [projects, folders, transcripts, uuid],
   );
 
   const newTranscript = useCallback(async () => {
     const transcript = await DataStore.save(
       new Transcript({
         title: `New Transcript ${new Date().toLocaleString()}`,
-        parent: folder?.id ?? null,
+        parent: folder?.id ?? project?.id ?? null,
         language: 'en-US',
         media: '{}',
         metadata: JSON.stringify({
@@ -117,10 +128,12 @@ const Home = ({
 
     console.log({ transcript });
     history.push(`/${transcript.id}`);
-  }, [history, folder, user]);
+  }, [history, project, folder, user]);
 
   const [newFolderModalVisible, setNewFolderModalVisible] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [newProjectModalVisible, setNewProjectModalVisible] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
   const [statusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const [statusDrawerTranscript, setStatusDrawerTranscript] = useState<Transcript | null>(null);
 
@@ -138,7 +151,7 @@ const Home = ({
     const newFolder = await DataStore.save(
       new Folder({
         title: newFolderName,
-        parent: folder?.id ?? null,
+        parent: folder?.id ?? project?.id ?? null,
         metadata: JSON.stringify({
           createdBy: user?.id,
           updatedBy: [user?.id],
@@ -149,7 +162,26 @@ const Home = ({
 
     console.log({ newFolder });
     setNewFolderModalVisible(false);
-  }, [folder, newFolderName, user]);
+  }, [project, folder, newFolderName, user]);
+
+  const newProject = useCallback(async () => setNewProjectModalVisible(true), []);
+  const createProject = useCallback(async () => {
+    const newProject = await DataStore.save(
+      new Project({
+        title: newProjectName,
+        // parent: folder?.id ?? null,
+        users: [user?.id ?? ''],
+        metadata: JSON.stringify({
+          createdBy: user?.id,
+          updatedBy: [user?.id],
+        }),
+        status: '{}',
+      }),
+    );
+
+    console.log({ newProject });
+    setNewProjectModalVisible(false);
+  }, [newProjectName, user]);
 
   const columns = useMemo(
     (): ColumnsType<Transcript | Folder> => [
@@ -160,7 +192,9 @@ const Home = ({
         width: '33%',
         render: (title: string, record: Transcript | Folder) => (
           <span>
-            {record instanceof Folder ? (
+            {record instanceof Project ? (
+              <ProjectTwoTone style={{ fontSize: 20, marginRight: 10 }} />
+            ) : record instanceof Folder ? (
               <FolderTwoTone style={{ fontSize: 20, marginRight: 10 }} />
             ) : (record.status as any)?.steps?.[0]?.data?.ffprobe?.streams.findIndex(
                 ({ codec_type: type }: { codec_type: string }) => type === 'video',
@@ -294,20 +328,20 @@ const Home = ({
     setSelectedRowKeys([]);
   }, [selectedRowKeys, messageApi]);
 
-  const routes = useMemo(() => {
-    const home = { path: '/', breadcrumbName: 'Home' };
-    if (!folder) return [home];
+  // const routes = useMemo(() => {
+  //   const home = { path: '/', breadcrumbName: 'Home' };
+  //   if (!folder) return [home];
 
-    const findParents = (f: Folder): Folder[] => {
-      const p = folders?.find(({ id }) => id === f.parent);
-      if (!p) return [];
+  //   const findParents = (f: Folder): Folder[] => {
+  //     const p = folders?.find(({ id }) => id === f.parent);
+  //     if (!p) return [];
 
-      return [p, ...findParents(p as Folder)];
-    };
-    const parents = findParents(folder);
+  //     return [p, ...findParents(p as Folder)];
+  //   };
+  //   const parents = findParents(folder);
 
-    return [home, ...parents.reverse().map(({ id, title }) => ({ path: `/${id}`, breadcrumbName: title }))];
-  }, [folder, folders]);
+  //   return [home, ...parents.reverse().map(({ id, title }) => ({ path: `/${id}`, breadcrumbName: title }))];
+  // }, [folder, folders]);
 
   const itemRender = useCallback(
     (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,
@@ -330,12 +364,21 @@ const Home = ({
           }
           extra={
             <Space>
-              <Button type="default" shape="round" icon={<FolderAddOutlined />} onClick={newFolder}>
-                New Folder
-              </Button>
-              <Button type="primary" shape="round" icon={<UploadOutlined />} onClick={newTranscript}>
-                New Transcript
-              </Button>
+              {groups.includes('Admins') && !uuid ? (
+                <Button type="default" shape="round" icon={<ProjectOutlined />} onClick={newProject}>
+                  New Project
+                </Button>
+              ) : null}
+              {uuid ? (
+                <>
+                  <Button type="default" shape="round" icon={<FolderAddOutlined />} onClick={newFolder}>
+                    New Folder
+                  </Button>
+                  <Button type="primary" shape="round" icon={<UploadOutlined />} onClick={newTranscript}>
+                    New Transcript
+                  </Button>
+                </>
+              ) : null}
               <Divider />
               {userMenu}
             </Space>
@@ -383,7 +426,20 @@ const Home = ({
               onChange={({ target: { value } }) => setNewFolderName(value)}
             />
           </Modal>
-          <DataCard objects={{ user, folder, folders, transcripts }} />
+          <Modal
+            destroyOnClose
+            title="New Project"
+            style={{ top: 20 }}
+            open={newProjectModalVisible}
+            onOk={() => createProject()}
+            onCancel={() => setNewProjectModalVisible(false)}>
+            <Input
+              placeholder="Project name"
+              value={newProjectName}
+              onChange={({ target: { value } }) => setNewProjectName(value)}
+            />
+          </Modal>
+          <DataCard objects={{ user, groups, folder, folders, transcripts }} />
           {selectedRowKeys.length > 0 ? (
             <FloatButton.Group shape="square" style={{ right: 94 }}>
               <FloatButton icon={<FolderOpenOutlined />} tooltip="Move to folder" type="primary" />

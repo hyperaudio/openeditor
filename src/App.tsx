@@ -10,7 +10,7 @@ import { defaultDarkModeOverride, useAuthenticator } from '@aws-amplify/ui-react
 import { useAtom } from 'jotai';
 import { useKonami } from 'react-konami-code';
 
-import { User, Transcript, Folder } from './models';
+import { User, Transcript, Project, Folder } from './models';
 import { darkModeAtom, debugModeAtom } from './atoms';
 import AuthPage from './pages/Auth';
 import Home from './pages/Home';
@@ -27,8 +27,13 @@ const getUser = async (username: string): Promise<User | undefined> =>
   (await DataStore.query(User, user => user.cognitoUsername('eq', username), { limit: 1 })).pop();
 
 const getUsers = async (setUsers: (users: User[]) => void): Promise<void> => setUsers(await DataStore.query(User));
+
 const getTranscripts = async (setTranscripts: (transcripts: Transcript[]) => void): Promise<void> =>
   setTranscripts(await DataStore.query(Transcript));
+
+const getProjects = async (setProjects: (projects: Project[]) => void): Promise<void> =>
+  setProjects(await DataStore.query(Project));
+
 const getFolders = async (setFolders: (folders: Folder[]) => void): Promise<void> =>
   setFolders(await DataStore.query(Folder));
 
@@ -54,6 +59,7 @@ const App = (): JSX.Element => {
   const [ready, setReady] = useState(false);
   const [users, setUsers] = useState<User[] | undefined>(undefined);
   const [transcripts, setTranscripts] = useState<Transcript[] | undefined>(undefined);
+  const [projects, setProjects] = useState<Project[] | undefined>(undefined);
   const [folders, setFolders] = useState<Folder[] | undefined>(undefined);
 
   const [debugMode, setDebug] = useAtom(debugModeAtom);
@@ -73,6 +79,15 @@ const App = (): JSX.Element => {
 
     const subscription = DataStore.observe(Transcript).subscribe(() => getTranscripts(setTranscripts));
     window.addEventListener('online', () => navigator.onLine && getTranscripts(setTranscripts));
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    getProjects(setProjects);
+
+    const subscription = DataStore.observe(Project).subscribe(() => getProjects(setProjects));
+    window.addEventListener('online', () => navigator.onLine && getProjects(setProjects));
 
     return () => subscription.unsubscribe();
   }, []);
@@ -134,15 +149,29 @@ const App = (): JSX.Element => {
     <Switch>
       <Route path="/" exact>
         <PageWrapper
-          {...{ user, users, groups, folders, transcripts, userMenu: <UserMenu {...{ user, groups, signOut }} /> }}
+          {...{
+            user,
+            users,
+            groups,
+            projects,
+            folders,
+            transcripts,
+            userMenu: <UserMenu {...{ user, groups, signOut }} />,
+          }}
         />
-        {/* <Home {...{ user, groups, folders, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} /> */}
       </Route>
       <Route path="/:uuid([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})">
         <PageWrapper
-          {...{ user, users, groups, folders, transcripts, userMenu: <UserMenu {...{ user, groups, signOut }} /> }}
+          {...{
+            user,
+            users,
+            groups,
+            projects,
+            folders,
+            transcripts,
+            userMenu: <UserMenu {...{ user, groups, signOut }} />,
+          }}
         />
-        {/* <TranscriptPage {...{ user, groups, transcripts }} userMenu={<UserMenu {...{ user, groups, signOut }} />} /> */}
       </Route>
       <Route path="*">
         <NotFound />
@@ -155,29 +184,80 @@ interface PageWrapperProps {
   user: User | undefined;
   users: User[] | undefined;
   groups: string[];
+  projects: Project[] | undefined;
   folders: Folder[] | undefined;
   transcripts: Transcript[] | undefined;
   userMenu: JSX.Element;
 }
 
-const PageWrapper = ({ user, users, groups, folders, transcripts, userMenu }: PageWrapperProps): JSX.Element => {
+const PageWrapper = ({
+  user,
+  users,
+  groups,
+  projects,
+  folders,
+  transcripts,
+  userMenu,
+}: PageWrapperProps): JSX.Element => {
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
-  console.log({ uuid, folders, transcripts });
+  console.log({ uuid, projects, folders, transcripts });
 
+  const project = useMemo(() => projects?.find(({ id }) => id === uuid), [projects, uuid]);
   const folder = useMemo(() => folders?.find(({ id }) => id === uuid), [folders, uuid]);
   const transcript = useMemo(() => transcripts?.find(({ id }) => id === uuid), [transcripts, uuid]);
 
+  const routes = useMemo(() => {
+    const home = { path: '/', breadcrumbName: 'Home' };
+
+    if (project) return [home];
+
+    if (folder || transcript)
+      return [
+        home,
+        ...getParents(uuid, projects ?? [], folders ?? [], transcripts ?? [])
+          .map(({ id, title }) => ({
+            path: `/${id}`,
+            breadcrumbName: title,
+          }))
+          .reverse(),
+      ];
+
+    return [home];
+  }, [uuid, project, projects, folder, folders, transcript, transcripts]);
+
   useEffect(() => window.scrollTo(0, 0), [uuid]);
 
-  return folder || !uuid ? (
-    <Home {...{ uuid, user, users, groups, folder, folders, transcripts, userMenu }} />
+  return project || folder || !uuid ? (
+    <Home {...{ uuid, user, users, groups, project, projects, folder, folders, transcripts, userMenu, routes }} />
   ) : transcript ? (
-    <TranscriptPage {...{ uuid, user, groups, folders, transcript, transcripts, userMenu }} />
+    <TranscriptPage
+      {...{ uuid, user, groups, project, projects, folders, transcript, transcripts, userMenu, routes }}
+    />
   ) : (
     <NotFound />
   );
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const findNodeById = (id: string, nodes: any[]): any | null => nodes.find(node => node.id === id) || null;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getParents = (id: string, projects: Project[], folders: Folder[], transcripts: Transcript[]): any[] => {
+  const allNodes = [...projects, ...folders, ...transcripts];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any[] = [];
+
+  let currentNode = findNodeById(id, allNodes);
+  while (currentNode && currentNode.parent !== null) {
+    currentNode = findNodeById(currentNode.parent, allNodes);
+    if (currentNode) {
+      result.push(currentNode);
+    }
+  }
+
+  return result;
 };
 
 export default AppWrapper;

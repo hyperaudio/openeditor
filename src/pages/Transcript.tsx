@@ -16,7 +16,7 @@ import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
-import { User, Transcript, Folder } from '../models';
+import { User, Transcript, Project, Folder } from '../models';
 import Player from '../components/Player';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/StatusCard';
@@ -30,12 +30,25 @@ const { Content } = Layout;
 interface TranscriptPageProps {
   user: User | undefined;
   groups: string[];
+  project: Project | undefined;
+  projects: Project[] | undefined;
   folders: Folder[] | undefined;
   transcripts: Transcript[] | undefined;
   userMenu: JSX.Element;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  routes: any[];
 }
 
-const TranscriptPage = ({ user, groups, folders, transcripts, userMenu }: TranscriptPageProps): JSX.Element => {
+const TranscriptPage = ({
+  user,
+  groups,
+  project,
+  projects,
+  folders,
+  transcripts,
+  userMenu,
+  routes = [],
+}: TranscriptPageProps): JSX.Element => {
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
@@ -197,20 +210,20 @@ const TranscriptPage = ({ user, groups, folders, transcripts, userMenu }: Transc
 
   const folder = useMemo(() => folders?.find(({ id }) => id === transcript?.parent), [folders, transcript]);
 
-  const routes = useMemo(() => {
-    const home = { path: '/', breadcrumbName: 'Home' };
-    if (!folder) return [home];
+  // const routes = useMemo(() => {
+  //   const home = { path: '/', breadcrumbName: 'Home' };
+  //   if (!folder) return [home];
 
-    const findParents = (f: Folder): Folder[] => {
-      const p = folders?.find(({ id }) => id === f.parent);
-      if (!p) return [];
+  //   const findParents = (f: Folder): Folder[] => {
+  //     const p = folders?.find(({ id }) => id === f.parent);
+  //     if (!p) return [];
 
-      return [p, ...findParents(p as Folder)];
-    };
-    const parents = [folder, ...findParents(folder)];
+  //     return [p, ...findParents(p as Folder)];
+  //   };
+  //   const parents = [folder, ...findParents(folder)];
 
-    return [home, ...parents.reverse().map(({ id, title }) => ({ path: `/${id}`, breadcrumbName: title }))];
-  }, [folder, folders]);
+  //   return [home, ...parents.reverse().map(({ id, title }) => ({ path: `/${id}`, breadcrumbName: title }))];
+  // }, [folder, folders]);
 
   const itemRender = useCallback(
     (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,

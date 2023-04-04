@@ -2,6 +2,10 @@ import { ModelInit, MutableModel } from "@aws-amplify/datastore";
 // @ts-ignore
 import { LazyLoading, LazyLoadingDisabled } from "@aws-amplify/datastore";
 
+type ProjectMetaData = {
+  readOnlyFields: 'createdAt' | 'updatedAt';
+}
+
 type FolderMetaData = {
   readOnlyFields: 'createdAt' | 'updatedAt';
 }
@@ -12,6 +16,34 @@ type TranscriptMetaData = {
 
 type UserMetaData = {
   readOnlyFields: 'createdAt' | 'updatedAt';
+}
+
+type EagerProject = {
+  readonly id: string;
+  readonly parent?: string | null;
+  readonly title: string;
+  readonly users?: string[] | null;
+  readonly status: string;
+  readonly metadata: string;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+type LazyProject = {
+  readonly id: string;
+  readonly parent?: string | null;
+  readonly title: string;
+  readonly users?: string[] | null;
+  readonly status: string;
+  readonly metadata: string;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+export declare type Project = LazyLoading extends LazyLoadingDisabled ? EagerProject : LazyProject
+
+export declare const Project: (new (init: ModelInit<Project, ProjectMetaData>) => Project) & {
+  copyOf(source: Project, mutator: (draft: MutableModel<Project, ProjectMetaData>) => MutableModel<Project, ProjectMetaData> | void): Project;
 }
 
 type EagerFolder = {

@@ -1,3 +1,12 @@
+type Project @model @auth(rules: [{allow: private, operations: [read]}, {allow: owner}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read]}, {allow: private, operations: [read], provider: iam}]) {
+  id: ID!
+  parent: String
+  title: String!
+  users: [String!]
+  status: AWSJSON!
+  metadata: AWSJSON!
+}
+
 type Folder @model @auth(rules: [{allow: private, operations: [read]}, {allow: owner}, {allow: private, provider: iam}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read, create, update]}]) {
   id: ID!
   parent: String

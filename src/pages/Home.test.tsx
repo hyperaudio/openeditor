@@ -23,9 +23,12 @@ test('renders OpenEditor', () => {
       users={[]}
       groups={[]}
       userMenu={<span>test</span>}
+      project={undefined}
+      projects={[]}
       folder={undefined}
       folders={[]}
       transcripts={[]}
+      routes={[]}
     />,
   );
   const linkElement = screen.getByText(/OpenEditor/i);
