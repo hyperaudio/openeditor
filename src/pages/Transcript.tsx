@@ -14,6 +14,7 @@ import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
+import TC, { FRAMERATE } from 'smpte-timecode';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
 import { User, Transcript, Project, Folder } from '../models';
@@ -200,16 +201,26 @@ const TranscriptPage = ({
     return '16/9';
   }, [transcript]);
 
-  const frameRate = useMemo(() => {
+  const originalFrameRate = useMemo(() => {
     const videoStream = (transcript as any)?.status?.steps?.[0]?.data?.ffprobe?.streams.find(
       (stream: any) => stream.codec_type === 'video',
     );
 
     // eslint-disable-next-line dot-notation, no-eval
-    if (videoStream?.['r_frame_rate']) return eval(videoStream?.['r_frame_rate']);
+    if (videoStream?.['r_frame_rate']) return parseFloat(parseFloat(eval(videoStream?.['r_frame_rate'])).toFixed(2));
 
-    return 1000;
+    return null;
   }, [transcript]);
+
+  const frameRate = useMemo(
+    () => (transcript as any)?.metadata.frameRate ?? originalFrameRate ?? 1000,
+    [transcript, originalFrameRate],
+  );
+
+  const offset = useMemo(
+    () => (transcript as any)?.metadata.offset ?? new TC(0, frameRate as FRAMERATE).toString(),
+    [transcript, frameRate],
+  );
 
   // console.log({ aspectRatio, frameRate });
 
@@ -261,7 +272,7 @@ const TranscriptPage = ({
             ? { position: 'sticky', left: 0, top: '0', width: '100%', zIndex: 1000 }
             : { position: 'fixed', left: 0, bottom: '0', width: '100%', zIndex: 1000 }
         }>
-        <Player {...{ audioKey, playing, play, pause, setTime, aspectRatio, frameRate }} seekTo={seekToRef} />
+        <Player {...{ audioKey, playing, play, pause, setTime, aspectRatio, frameRate, offset }} seekTo={seekToRef} />
       </div>
       <Content>
         <Row
@@ -275,7 +286,7 @@ const TranscriptPage = ({
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
             ) : initialState ? (
               <Editor
-                {...{ initialState, time, seekTo, speakers, setSpeakers, playing, play, pause, frameRate }}
+                {...{ initialState, time, seekTo, speakers, setSpeakers, playing, play, pause, frameRate, offset }}
                 autoScroll={false}
                 onChange={setDraft}
                 playheadDecorator={noKaraoke ? null : undefined}
@@ -298,7 +309,7 @@ const TranscriptPage = ({
         open={metaDrawerVisible}
         closable
         width={600}>
-        <MetadataCard {...{ transcript, user, speakers, setSpeakers }} />
+        <MetadataCard {...{ transcript, user, speakers, setSpeakers, frameRate, offset }} />
       </Drawer>
       <Drawer
         destroyOnClose

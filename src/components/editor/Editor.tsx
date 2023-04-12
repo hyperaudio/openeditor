@@ -73,6 +73,7 @@ interface EditorProps {
   pause: () => void;
   readOnly?: boolean;
   frameRate?: number;
+  offset: string;
 }
 
 const Editor = ({
@@ -92,6 +93,7 @@ const Editor = ({
   pause,
   readOnly,
   frameRate,
+  offset,
   ...rest
 }: EditorProps): JSX.Element => {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -302,7 +304,7 @@ const Editor = ({
           .getCurrentContent()
           .getBlocksAsArray()
           .map((block: ContentBlock) => (
-            <BlockStyle key={block.getKey()} {...{ block, speakers, time, frameRate }} />
+            <BlockStyle key={block.getKey()} {...{ block, speakers, time, frameRate, offset }} />
           ))}
         <EditorStyleElement />
       </div>
@@ -415,12 +417,14 @@ const BlockStyle = ({
   time,
   activeInterval,
   frameRate,
+  offset,
 }: {
   block: ContentBlock;
   speakers: any;
   time: number;
   activeInterval?: any[];
   frameRate?: number;
+  offset: string;
 }): JSX.Element => {
   const [darkMode] = useAtom(darkModeAtom);
   const [showFullTimecode] = useAtom(showFullTimecodeAtom);
@@ -428,7 +432,7 @@ const BlockStyle = ({
   const start = useMemo(() => block.getData().get('start'), [block]);
   const end = useMemo(() => block.getData().get('end'), [block]);
   const tc = useMemo(
-    () => timecode({ seconds: start, partialTimecode: !showFullTimecode, frameRate }),
+    () => timecode({ seconds: start, partialTimecode: !showFullTimecode, frameRate, offset }),
     [start, showFullTimecode, frameRate],
   );
   // const intersects = useMemo(() => intersection([start, end], activeInterval), [start, end, activeInterval]);
@@ -590,8 +594,22 @@ const EditorStyleElement = (): JSX.Element => {
   return <style scoped>{style}</style>;
 };
 
-const timecode = ({ seconds = 0, frameRate = 1000, dropFrame = false, partialTimecode = false }): string => {
-  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+const timecode = ({
+  seconds = 0,
+  frameRate = 1000,
+  dropFrame = false,
+  partialTimecode = false,
+  offset = 0,
+}: {
+  seconds: number;
+  frameRate?: FRAMERATE | number;
+  dropFrame?: boolean;
+  partialTimecode: boolean;
+  offset: number | string;
+}): string => {
+  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
+    .add(new TC(offset, frameRate as FRAMERATE))
+    .toString();
   // hh:mm:ss
   if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
 

@@ -317,7 +317,7 @@ const reducer = (
   const join = changedContentState.getBlockMap().size < contentState.getBlockMap().size;
   const split = changedContentState.getBlockMap().size > contentState.getBlockMap().size;
 
-  console.log({ type, join, split });
+  // console.log({ type, join, split });
 
   switch (type) {
     case 'insert-characters':

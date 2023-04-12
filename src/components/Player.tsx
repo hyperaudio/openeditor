@@ -35,11 +35,12 @@ interface PlayerProps {
   seekTo: MutableRefObject<(time: number) => void>;
   aspectRatio: string;
   frameRate: number;
+  offset: string;
 }
 
 const Player = forwardRef<HTMLMediaElement | HTMLVideoElement | any, PlayerProps>(
   (
-    { audioKey, playing, play, pause, setTime, seekTo, aspectRatio = '16/9', frameRate = 25 }: PlayerProps,
+    { audioKey, playing, play, pause, setTime, seekTo, aspectRatio = '16/9', frameRate = 25, offset }: PlayerProps,
     ref,
   ): JSX.Element | null => {
     const [darkMode] = useAtom(darkModeAtom);
@@ -316,7 +317,7 @@ const Player = forwardRef<HTMLMediaElement | HTMLVideoElement | any, PlayerProps
                   </MediaSeekForwardButton>
                   <MediaSeekForwardButton seek-offset="5" />
                   <span className="tc">
-                    {timecode({ seconds: currentTime, partialTimecode: !showFullTimecode, frameRate })}
+                    {timecode({ seconds: currentTime, partialTimecode: !showFullTimecode, frameRate, offset })}
                   </span>
                 </MediaControlBar>
 
@@ -369,11 +370,13 @@ const Player = forwardRef<HTMLMediaElement | HTMLVideoElement | any, PlayerProps
           </MediaSeekForwardButton>
           <MediaSeekForwardButton seek-offset="5" />
           <span className="tc">
-            {timecode({ seconds: currentTime, partialTimecode: !showFullTimecode, frameRate })}
+            {timecode({ seconds: currentTime, partialTimecode: !showFullTimecode, frameRate, offset })}
           </span>
           <MediaTimeRange />
           {/* <MediaTimeDisplay showDuration /> */}
-          <span className="tc">{timecode({ seconds: duration, partialTimecode: !showFullTimecode, frameRate })}</span>
+          <span className="tc">
+            {timecode({ seconds: duration, partialTimecode: !showFullTimecode, frameRate, offset })}
+          </span>
           <MediaPlaybackRateButton />
           <MediaVolumeRange />
           <MediaPipButton />
@@ -402,8 +405,22 @@ const Player = forwardRef<HTMLMediaElement | HTMLVideoElement | any, PlayerProps
   },
 );
 
-const timecode = ({ seconds = 0, frameRate = 1000, dropFrame = false, partialTimecode = false }): string => {
-  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+const timecode = ({
+  seconds = 0,
+  frameRate = 1000,
+  dropFrame = false,
+  partialTimecode = false,
+  offset = 0,
+}: {
+  seconds: number;
+  frameRate: FRAMERATE | number;
+  dropFrame?: boolean;
+  partialTimecode: boolean;
+  offset: number | string;
+}): string => {
+  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
+    .add(new TC(offset, frameRate as FRAMERATE))
+    .toString();
   // hh:mm:ss
   if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
 
