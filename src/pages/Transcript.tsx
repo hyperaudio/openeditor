@@ -4,7 +4,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObject } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useHistory } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import { Layout, Col, Row, Drawer, FloatButton, Empty, Skeleton, Button, Space, Divider } from 'antd';
@@ -19,10 +19,10 @@ import { darkModeAtom, transportAtTopAtom } from '../atoms';
 import { User, Transcript, Project, Folder } from '../models';
 import Player from '../components/Player';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
-import StatusCard, { StatusTag } from '../components/StatusCard';
-import DataCard from '../components/DataCard';
-import ExportCard from '../components/ExportCard';
-import MetadataCard from '../components/MetadataCard';
+import StatusCard, { StatusTag } from '../components/cards/StatusCard';
+import DataCard from '../components/cards/DataCard';
+import ExportCard from '../components/cards/ExportCard';
+import MetadataCard from '../components/cards/MetadataCard';
 import Footer from '../components/Footer';
 
 const { Content } = Layout;
@@ -49,6 +49,7 @@ const TranscriptPage = ({
   userMenu,
   routes = [],
 }: TranscriptPageProps): JSX.Element => {
+  const history = useHistory();
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
@@ -63,7 +64,11 @@ const TranscriptPage = ({
 
   const [statusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const openStatusDrawer = useCallback(() => setStatusDrawerVisible(true), []);
-  const closeStatusDrawer = useCallback(() => setStatusDrawerVisible(step >= 0 && step < 3), [step]);
+  const closeStatusDrawer = useCallback(() => {
+    // setStatusDrawerVisible(step >= 0 && step < 3);
+    setStatusDrawerVisible(false);
+    if (step >= 0 && step < 3) history.push(`/${transcript?.parent ?? ''}`);
+  }, [step, transcript, history]);
 
   const [metaDrawerVisible, setMetaDrawerVisible] = useState(false);
   const openMetaDrawer = useCallback(() => setMetaDrawerVisible(true), []);
@@ -208,23 +213,6 @@ const TranscriptPage = ({
 
   // console.log({ aspectRatio, frameRate });
 
-  const folder = useMemo(() => folders?.find(({ id }) => id === transcript?.parent), [folders, transcript]);
-
-  // const routes = useMemo(() => {
-  //   const home = { path: '/', breadcrumbName: 'Home' };
-  //   if (!folder) return [home];
-
-  //   const findParents = (f: Folder): Folder[] => {
-  //     const p = folders?.find(({ id }) => id === f.parent);
-  //     if (!p) return [];
-
-  //     return [p, ...findParents(p as Folder)];
-  //   };
-  //   const parents = [folder, ...findParents(folder)];
-
-  //   return [home, ...parents.reverse().map(({ id, title }) => ({ path: `/${id}`, breadcrumbName: title }))];
-  // }, [folder, folders]);
-
   const itemRender = useCallback(
     (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,
     [],
@@ -318,7 +306,7 @@ const TranscriptPage = ({
         placement="right"
         onClose={closeStatusDrawer}
         open={statusDrawerVisible}
-        closable={!(step < 3)}
+        // closable={!(step < 3)}
         width={600}>
         {transcript ? <StatusCard transcript={transcript} user={user} groups={groups} /> : null}
       </Drawer>
