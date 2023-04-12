@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { useAtom } from 'jotai';
 import { Card, Radio, Space, Button, Select } from 'antd';
 import Timecode from 'smpte-timecode';
 import { Document, Paragraph, TextRun, Packer } from 'docx';
 import sanitize from 'sanitize-filename';
 import { ContentState, RawDraftContentBlock } from 'draft-js';
+import TC, { FRAMERATE } from 'smpte-timecode';
 
 import { debugModeAtom } from '../../atoms';
 import { User, Transcript } from '../../models';
@@ -33,6 +34,34 @@ const ExportCard = ({
   const [jsonFormat, setJsonFormat] = useState('OEv2');
   const handleChange = useCallback((e: RadioChangeEvent): void => setFormat(e.target.value), []);
   const handleJSONChange = useCallback((value: string): void => setJsonFormat(value), []);
+
+  const originalFrameRate = useMemo(() => {
+    const videoStream = (transcript as any)?.status?.steps?.[0]?.data?.ffprobe?.streams.find(
+      (stream: any) => stream.codec_type === 'video',
+    );
+
+    // eslint-disable-next-line dot-notation, no-eval
+    if (videoStream?.['r_frame_rate']) return parseFloat(parseFloat(eval(videoStream?.['r_frame_rate'])).toFixed(2));
+
+    return null;
+  }, [transcript]);
+
+  const frameRate = useMemo(
+    () => (transcript as any)?.metadata.frameRate ?? originalFrameRate ?? 1000,
+    [transcript, originalFrameRate],
+  );
+
+  const offset = useMemo(
+    () => (transcript as any)?.metadata.offset ?? new TC(0, frameRate as FRAMERATE).toString(),
+    [transcript, frameRate],
+  );
+
+  const offsetSeconds = useMemo(
+    () => new TC(offset, frameRate as FRAMERATE).valueOf() * (1 / frameRate),
+    [offset, frameRate],
+  );
+
+  console.log({ frameRate, offset, offsetSeconds });
 
   const handleExport = useCallback(async () => {
     if (!transcript || !user || !content) return;
@@ -217,7 +246,11 @@ const ExportCard = ({
           sections: [
             {
               children: blocks.map(block => {
-                const tc = new Timecode((block.data?.start ?? 0) * 30, 30).toString().split(':').slice(0, 3).join(':');
+                const tc = new Timecode((offsetSeconds + (block.data?.start ?? 0)) * 30, 30)
+                  .toString()
+                  .split(':')
+                  .slice(0, 3)
+                  .join(':');
 
                 const paragraph = new Paragraph({
                   children: [
