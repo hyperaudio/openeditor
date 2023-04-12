@@ -4,8 +4,8 @@ import { DataStore } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import { Card, Input, Space, Button } from 'antd';
 
-import { debugModeAtom } from '../atoms';
-import { User, Transcript } from '../models';
+import { debugModeAtom } from '../../atoms';
+import { User, Transcript } from '../../models';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MetadataCard = ({

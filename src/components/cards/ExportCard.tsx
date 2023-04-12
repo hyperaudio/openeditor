@@ -7,8 +7,8 @@ import { Document, Paragraph, TextRun, Packer } from 'docx';
 import sanitize from 'sanitize-filename';
 import { ContentState, RawDraftContentBlock } from 'draft-js';
 
-import { debugModeAtom } from '../atoms';
-import { User, Transcript } from '../models';
+import { debugModeAtom } from '../../atoms';
+import { User, Transcript } from '../../models';
 
 import type { RadioChangeEvent } from 'antd';
 

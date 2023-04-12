@@ -3,7 +3,7 @@ import { useAtom } from 'jotai';
 import ReactJson from 'react-json-view';
 import { Card } from 'antd';
 
-import { darkModeAtom, debugModeAtom } from '../atoms';
+import { darkModeAtom, debugModeAtom } from '../../atoms';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DataCard = ({ objects }: { objects: any }): JSX.Element | null => {

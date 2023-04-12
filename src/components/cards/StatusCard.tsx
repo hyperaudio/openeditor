@@ -30,9 +30,9 @@ import {
   MediaVolumeRange,
 } from 'media-chrome/dist/react';
 
-import { User, Transcript } from '../models';
-import languages from '../data/aws-transcribe-languages.json';
-import { debugModeAtom } from '../atoms';
+import { User, Transcript } from '../../models';
+import languages from '../../data/aws-transcribe-languages.json';
+import { debugModeAtom } from '../../atoms';
 
 import type { UploadRequestOption, UploadProgressEvent, UploadRequestError } from 'rc-upload/lib/interface';
 import type { UploadFile, UploadChangeParam } from 'antd/lib/upload/interface';
@@ -158,7 +158,7 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
 
       await DataStore.save(
         Transcript.copyOf(original, (updated: any) => {
-          const originalStatus = JSON.parse(JSON.stringify(original.status));
+          const originalStatus = JSON.parse(JSON.stringify(original.status)); // FIXME
           // eslint-disable-next-line no-param-reassign
           updated.status = JSON.stringify({
             ...originalStatus,
