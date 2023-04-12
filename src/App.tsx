@@ -202,35 +202,40 @@ const PageWrapper = ({
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
-  console.log({ uuid, projects, folders, transcripts });
-
   const project = useMemo(() => projects?.find(({ id }) => id === uuid), [projects, uuid]);
   const folder = useMemo(() => folders?.find(({ id }) => id === uuid), [folders, uuid]);
   const transcript = useMemo(() => transcripts?.find(({ id }) => id === uuid), [transcripts, uuid]);
 
-  const routes = useMemo(() => {
+  const [root, routes] = useMemo(() => {
     const home = { path: '/', breadcrumbName: 'Home' };
 
-    if (project) return [home];
+    if (project) return [project, [home]];
 
-    if (folder || transcript)
+    if (folder || transcript) {
+      const parents = getParents(uuid, projects ?? [], folders ?? [], transcripts ?? []);
+      const root = parents?.[0];
+
       return [
-        home,
-        ...getParents(uuid, projects ?? [], folders ?? [], transcripts ?? [])
-          .map(({ id, title }) => ({
-            path: `/${id}`,
-            breadcrumbName: title,
-          }))
-          .reverse(),
+        root,
+        [
+          home,
+          ...parents
+            .map(({ id, title }) => ({
+              path: `/${id}`,
+              breadcrumbName: title,
+            }))
+            .reverse(),
+        ],
       ];
+    }
 
-    return [home];
+    return [null, [home]];
   }, [uuid, project, projects, folder, folders, transcript, transcripts]);
 
   useEffect(() => window.scrollTo(0, 0), [uuid]);
 
   return project || folder || !uuid ? (
-    <Home {...{ uuid, user, users, groups, project, projects, folder, folders, transcripts, userMenu, routes }} />
+    <Home {...{ uuid, user, users, groups, project, projects, folder, folders, transcripts, userMenu, root, routes }} />
   ) : transcript ? (
     <TranscriptPage
       {...{ uuid, user, groups, project, projects, folders, transcript, transcripts, userMenu, routes }}

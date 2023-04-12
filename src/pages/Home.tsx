@@ -24,6 +24,7 @@ import {
   Modal,
   Input,
   message,
+  Tree,
 } from 'antd';
 import UploadOutlined from '@ant-design/icons/UploadOutlined';
 import DeleteOutlined from '@ant-design/icons/DeleteOutlined';
@@ -38,14 +39,17 @@ import { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '@ant-design/pro-components';
 
 import { User, Transcript, Project, Folder } from '../models';
-import StatusCard, { StatusTag, StatusBadge } from '../components/StatusCard';
+import StatusCard, { StatusTag, StatusBadge } from '../components/cards/StatusCard';
 import UserAvatar, { UserAvatarGroup } from '../components/UserAvatar';
-import DataCard from '../components/DataCard';
+import DataCard from '../components/cards/DataCard';
 import Footer from '../components/Footer';
 import { darkModeAtom } from '../atoms';
 
+import type { DataNode, DirectoryTreeProps } from 'antd/es/tree';
+
 const { Header, Content } = Layout;
 const { Text } = Typography;
+const { DirectoryTree } = Tree;
 
 interface HomeProps {
   uuid: string | undefined;
@@ -58,6 +62,7 @@ interface HomeProps {
   folder: Folder | undefined;
   folders: Folder[] | undefined;
   transcripts: Transcript[] | undefined;
+  root: Project | Folder | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   routes: any[];
 }
@@ -73,6 +78,7 @@ const Home = ({
   folders = [],
   transcripts = [],
   userMenu,
+  root,
   routes = [],
 }: HomeProps): JSX.Element => {
   const history = useHistory();
@@ -80,14 +86,18 @@ const Home = ({
   const [messageApi, contextHolder] = message.useMessage();
 
   const rows = useMemo(
-    () => [
-      // eslint-disable-next-line eqeqeq
-      ...projects.filter(({ parent }) => parent == uuid),
-      // eslint-disable-next-line eqeqeq
-      ...folders.filter(({ parent }) => parent == uuid),
-      // eslint-disable-next-line eqeqeq
-      ...transcripts.filter(({ parent }) => parent == uuid),
-    ],
+    () =>
+      [
+        // eslint-disable-next-line eqeqeq
+        ...projects.filter(({ parent }) => parent == uuid),
+        // eslint-disable-next-line eqeqeq
+        ...folders.filter(({ parent }) => parent == uuid),
+        // eslint-disable-next-line eqeqeq
+        ...transcripts.filter(({ parent }) => parent == uuid),
+      ].filter(row => {
+        const metadata = JSON.parse(JSON.stringify(row.metadata)); // FIXME
+        return metadata?.deleted !== true;
+      }),
     [projects, folders, transcripts, uuid],
   );
 
@@ -131,9 +141,8 @@ const Home = ({
   }, [history, project, folder, user]);
 
   const [newFolderModalVisible, setNewFolderModalVisible] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
   const [newProjectModalVisible, setNewProjectModalVisible] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
+  const [moveToFolderModalVisible, setMoveToFolderModalVisible] = useState(false);
   const [statusDrawerVisible, setStatusDrawerVisible] = useState(false);
   const [statusDrawerTranscript, setStatusDrawerTranscript] = useState<Transcript | null>(null);
 
@@ -146,42 +155,8 @@ const Home = ({
     // setStatusDrawerTranscript(null); // TODO: keep while uploading only
   }, []);
 
-  const newFolder = useCallback(async () => setNewFolderModalVisible(true), []);
-  const createFolder = useCallback(async () => {
-    const newFolder = await DataStore.save(
-      new Folder({
-        title: newFolderName,
-        parent: folder?.id ?? project?.id ?? null,
-        metadata: JSON.stringify({
-          createdBy: user?.id,
-          updatedBy: [user?.id],
-        }),
-        status: '{}',
-      }),
-    );
-
-    console.log({ newFolder });
-    setNewFolderModalVisible(false);
-  }, [project, folder, newFolderName, user]);
-
-  const newProject = useCallback(async () => setNewProjectModalVisible(true), []);
-  const createProject = useCallback(async () => {
-    const newProject = await DataStore.save(
-      new Project({
-        title: newProjectName,
-        // parent: folder?.id ?? null,
-        users: [user?.id ?? ''],
-        metadata: JSON.stringify({
-          createdBy: user?.id,
-          updatedBy: [user?.id],
-        }),
-        status: '{}',
-      }),
-    );
-
-    console.log({ newProject });
-    setNewProjectModalVisible(false);
-  }, [newProjectName, user]);
+  const newFolder = useCallback(() => setNewFolderModalVisible(true), []);
+  const newProject = useCallback(() => setNewProjectModalVisible(true), []);
 
   const columns = useMemo(
     (): ColumnsType<Transcript | Folder> => [
@@ -190,24 +165,32 @@ const Home = ({
         dataIndex: 'title',
         key: 'title',
         width: '33%',
-        render: (title: string, record: Transcript | Folder) => (
-          <span>
-            {record instanceof Project ? (
-              <ProjectTwoTone style={{ fontSize: 20, marginRight: 10 }} />
-            ) : record instanceof Folder ? (
-              <FolderTwoTone style={{ fontSize: 20, marginRight: 10 }} />
-            ) : (record.status as any)?.steps?.[0]?.data?.ffprobe?.streams.findIndex(
-                ({ codec_type: type }: { codec_type: string }) => type === 'video',
-              ) > -1 ? (
-              <VideoCameraTwoTone style={{ fontSize: 20, marginRight: 10 }} />
-            ) : (
-              <AudioTwoTone style={{ fontSize: 20, marginRight: 10 }} />
-            )}
-            <Link to={`/${record.id}`}>
-              <Text>{title}</Text>
-            </Link>
-          </span>
-        ),
+        render: (title: string, record: Transcript | Folder) => {
+          const metadata = JSON.parse(JSON.stringify(record.metadata)); // FIXME
+          return (
+            <span>
+              {record instanceof Project ? (
+                <ProjectTwoTone style={{ fontSize: 20, marginRight: 10 }} />
+              ) : record instanceof Folder ? (
+                <FolderTwoTone style={{ fontSize: 20, marginRight: 10 }} />
+              ) : (record.status as any)?.steps?.[0]?.data?.ffprobe?.streams.findIndex(
+                  ({ codec_type: type }: { codec_type: string }) => type === 'video',
+                ) > -1 ? (
+                <VideoCameraTwoTone style={{ fontSize: 20, marginRight: 10 }} />
+              ) : (
+                <AudioTwoTone style={{ fontSize: 20, marginRight: 10 }} />
+              )}
+              <Link to={`/${record.id}`}>
+                <Text
+                  style={{
+                    textDecoration: metadata.deleted ? 'line-through' : 'none',
+                  }}>
+                  {title}
+                </Text>
+              </Link>
+            </span>
+          );
+        },
       },
       {
         title: 'Status',
@@ -315,33 +298,51 @@ const Home = ({
   const deleteRows = useCallback(async () => {
     await Promise.all(
       selectedRowKeys.map(async id => {
-        const transcript = await DataStore.query(Transcript, id as string);
-        console.log('deleting', { transcript });
+        const project = (await DataStore.query(Project, id as string)) as Project;
+        const folder = (await DataStore.query(Folder, id as string)) as Folder;
+        const transcript = (await DataStore.query(Transcript, id as string)) as Transcript;
+
+        const item = project || folder || transcript;
+
+        // Actual delete
+        // if (transcript) return DataStore.delete(transcript);
+
+        // Mark as deleted
+        const metadata = JSON.parse(JSON.stringify(item.metadata)); // FIXME
+
+        if (project)
+          await DataStore.save(
+            Project.copyOf(project, (updated: any) => {
+              // eslint-disable-next-line no-param-reassign
+              updated.metadata = JSON.stringify({ ...metadata, deleted: true });
+            }),
+          );
+
+        if (folder)
+          await DataStore.save(
+            Folder.copyOf(folder, (updated: any) => {
+              // eslint-disable-next-line no-param-reassign
+              updated.metadata = JSON.stringify({ ...metadata, deleted: true });
+            }),
+          );
+
+        if (transcript)
+          await DataStore.save(
+            Transcript.copyOf(transcript, (updated: any) => {
+              // eslint-disable-next-line no-param-reassign
+              updated.metadata = JSON.stringify({ ...metadata, deleted: true });
+            }),
+          );
+
         messageApi.open({
           type: 'warning',
-          content: `Delete disabled for now`,
+          content: `${item.title} deleted`,
         });
-        // if (transcript) return DataStore.delete(transcript);
         return null;
       }),
     );
     setSelectedRowKeys([]);
   }, [selectedRowKeys, messageApi]);
-
-  // const routes = useMemo(() => {
-  //   const home = { path: '/', breadcrumbName: 'Home' };
-  //   if (!folder) return [home];
-
-  //   const findParents = (f: Folder): Folder[] => {
-  //     const p = folders?.find(({ id }) => id === f.parent);
-  //     if (!p) return [];
-
-  //     return [p, ...findParents(p as Folder)];
-  //   };
-  //   const parents = findParents(folder);
-
-  //   return [home, ...parents.reverse().map(({ id, title }) => ({ path: `/${id}`, breadcrumbName: title }))];
-  // }, [folder, folders]);
 
   const itemRender = useCallback(
     (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,
@@ -359,7 +360,7 @@ const Home = ({
           }}
           title={
             <>
-              <span>{folder ? folder.title : 'OpenEditor'}</span>{' '}
+              <span>{project ? project.title : folder ? folder.title : 'OpenEditor'}</span>{' '}
             </>
           }
           extra={
@@ -400,6 +401,7 @@ const Home = ({
                 dataSource={rows}
                 columns={columns}
                 rowSelection={rowSelection}
+                // rowSelection={uuid ? rowSelection : undefined}
               />
             </Col>
           </Row>
@@ -413,36 +415,35 @@ const Home = ({
               <StatusCard transcript={statusDrawerTranscript} user={user} groups={groups} />
             ) : null}
           </Drawer>
-          <Modal
-            destroyOnClose
-            title="New Folder"
-            style={{ top: 20 }}
-            open={newFolderModalVisible}
-            onOk={() => createFolder()}
-            onCancel={() => setNewFolderModalVisible(false)}>
-            <Input
-              placeholder="Folder name"
-              value={newFolderName}
-              onChange={({ target: { value } }) => setNewFolderName(value)}
+          <NewProjectModal visible={newProjectModalVisible} setVisible={setNewProjectModalVisible} userId={user?.id} />
+          <NewFolderModal
+            visible={newFolderModalVisible}
+            setVisible={setNewFolderModalVisible}
+            userId={user?.id}
+            parentId={project?.id ?? folder?.id}
+          />
+          {selectedRowKeys.length > 0 ? (
+            <MoveToFolderModal
+              visible={moveToFolderModalVisible}
+              setVisible={setMoveToFolderModalVisible}
+              userId={user?.id}
+              root={root}
+              folder={folder}
+              folders={folders}
+              selectedRowKeys={selectedRowKeys}
             />
-          </Modal>
-          <Modal
-            destroyOnClose
-            title="New Project"
-            style={{ top: 20 }}
-            open={newProjectModalVisible}
-            onOk={() => createProject()}
-            onCancel={() => setNewProjectModalVisible(false)}>
-            <Input
-              placeholder="Project name"
-              value={newProjectName}
-              onChange={({ target: { value } }) => setNewProjectName(value)}
-            />
-          </Modal>
-          <DataCard objects={{ user, groups, folder, folders, transcripts }} />
+          ) : null}
+          <DataCard objects={{ user, groups, project, projects, folder, folders, transcripts }} />
           {selectedRowKeys.length > 0 ? (
             <FloatButton.Group shape="square" style={{ right: 94 }}>
-              <FloatButton icon={<FolderOpenOutlined />} tooltip="Move to folder" type="primary" />
+              {root ? (
+                <FloatButton
+                  icon={<FolderOpenOutlined />}
+                  tooltip="Move to folder"
+                  type="primary"
+                  onClick={() => setMoveToFolderModalVisible(true)}
+                />
+              ) : null}
               <Popconfirm
                 title="Delete selected items"
                 description={`Delete ${selectedRowKeys.length} items?`}
@@ -453,13 +454,7 @@ const Home = ({
                 okText="Delete"
                 okButtonProps={{ danger: true }}
                 cancelText="Cancel">
-                <FloatButton
-                  icon={<DeleteOutlined />}
-                  // tooltip="Delete"
-                  type="primary"
-                  className="danger-button"
-                  // onClick={deleteRows}
-                />
+                <FloatButton icon={<DeleteOutlined />} type="primary" className="danger-button" />
               </Popconfirm>
             </FloatButton.Group>
           ) : null}
@@ -468,6 +463,211 @@ const Home = ({
         </Content>
       </Layout>
     </>
+  );
+};
+
+const NewFolderModal = ({
+  visible,
+  setVisible,
+  parentId,
+  userId,
+}: {
+  visible: boolean;
+  setVisible: (visibility: boolean) => void;
+  parentId: string | undefined;
+  userId: string | undefined;
+}): JSX.Element => {
+  const [newFolderName, setNewFolderName] = useState('');
+
+  const createFolder = useCallback(async () => {
+    const newFolder = await DataStore.save(
+      new Folder({
+        title: newFolderName,
+        parent: parentId,
+        metadata: JSON.stringify({
+          createdBy: userId,
+          updatedBy: [userId],
+        }),
+        status: '{}',
+      }),
+    );
+
+    console.log({ newFolder });
+    setVisible(false);
+  }, [parentId, newFolderName, userId, setVisible]);
+
+  const handleOk = useCallback(() => createFolder(), [createFolder]);
+  const handleCancel = useCallback(() => setVisible(false), [setVisible]);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const {
+      target: { value },
+    } = e;
+    setNewFolderName(value);
+  }, []);
+
+  return (
+    <Modal destroyOnClose title="New Folder" style={{ top: 20 }} open={visible} onOk={handleOk} onCancel={handleCancel}>
+      <Input placeholder="Folder name" value={newFolderName} onChange={handleChange} />
+    </Modal>
+  );
+};
+
+const NewProjectModal = ({
+  visible,
+  setVisible,
+  userId,
+}: {
+  visible: boolean;
+  setVisible: (visibility: boolean) => void;
+  userId: string | undefined;
+}): JSX.Element => {
+  const [value, setValue] = useState('');
+
+  const createProject = useCallback(async () => {
+    const newProject = await DataStore.save(
+      new Project({
+        title: value,
+        users: [userId ?? ''], // FIXME: handle undefined
+        metadata: JSON.stringify({
+          createdBy: userId,
+          updatedBy: [userId],
+        }),
+        status: '{}',
+      }),
+    );
+
+    console.log({ newProject });
+    setVisible(false);
+  }, [value, userId, setVisible]);
+
+  const handleOk = useCallback(() => createProject(), [createProject]);
+  const handleCancel = useCallback(() => setVisible(false), [setVisible]);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const {
+      target: { value },
+    } = e;
+    setValue(value);
+  }, []);
+
+  return (
+    <Modal
+      destroyOnClose
+      title="New Project"
+      style={{ top: 20 }}
+      open={visible}
+      onOk={handleOk}
+      onCancel={handleCancel}>
+      <Input placeholder="Project name" value={value} onChange={handleChange} />
+    </Modal>
+  );
+};
+
+const MoveToFolderModal = ({
+  visible,
+  setVisible,
+  userId,
+  root,
+  folder,
+  folders,
+  selectedRowKeys = [],
+}: {
+  visible: boolean;
+  setVisible: (visibility: boolean) => void;
+  userId: string | undefined;
+  root: Project | Folder | undefined;
+  folder: Folder | undefined;
+  folders: Folder[];
+  selectedRowKeys: React.Key[];
+}): JSX.Element => {
+  const moveToFolder = useCallback(() => {
+    console.log('move to folder');
+  }, []);
+
+  console.log({ root, folder });
+
+  const treeData: DataNode[] = useMemo(() => {
+    if (!root) return [];
+
+    const rootNode = {
+      title: root.title,
+      key: root.id,
+      children: [],
+    };
+
+    const findChildren = (node: DataNode): DataNode | void => {
+      const children = folders.filter(f => f.parent === node.key);
+      if (children.length > 0) {
+        // eslint-disable-next-line no-param-reassign
+        node.children = children.map(c => ({
+          title: c.title,
+          key: c.id,
+          children: [],
+        }));
+        node.children.forEach(findChildren);
+      }
+    };
+
+    return [findChildren(rootNode) ?? rootNode];
+  }, [root, folders]);
+
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+
+  const moveToParent = useCallback(async () => {
+    const [parentId] = selectedKeys;
+    if (!parentId || parentId === '') return;
+
+    await Promise.all(
+      selectedRowKeys.map(async id => {
+        const folder = (await DataStore.query(Folder, id as string)) as Folder;
+        const transcript = (await DataStore.query(Transcript, id as string)) as Transcript;
+
+        if (folder)
+          await DataStore.save(
+            Folder.copyOf(folder, (updated: any) => {
+              // eslint-disable-next-line no-param-reassign
+              updated.parent = parentId;
+            }),
+          );
+
+        if (transcript)
+          await DataStore.save(
+            Transcript.copyOf(transcript, (updated: any) => {
+              // eslint-disable-next-line no-param-reassign
+              updated.parent = parentId;
+            }),
+          );
+
+        return null;
+      }),
+    );
+    // setSelectedRowKeys([]);
+    setVisible(false);
+  }, [selectedRowKeys, selectedKeys, setVisible]);
+
+  const handleSelect = useCallback((keys: React.Key[], e: any) => {
+    setSelectedKeys(keys as string[]);
+  }, []);
+
+  const handleOk = useCallback(() => moveToParent(), [moveToParent]);
+  const handleCancel = useCallback(() => setVisible(false), [setVisible]);
+
+  return (
+    <Modal
+      destroyOnClose
+      title="Move to Folder"
+      style={{ top: 20 }}
+      open={visible}
+      onOk={handleOk}
+      onCancel={handleCancel}>
+      <DirectoryTree
+        defaultExpandAll
+        onSelect={handleSelect}
+        treeData={treeData}
+        defaultSelectedKeys={folder ? [folder.id] : []}
+      />
+    </Modal>
   );
 };
 

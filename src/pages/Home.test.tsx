@@ -28,6 +28,7 @@ test('renders OpenEditor', () => {
       folder={undefined}
       folders={[]}
       transcripts={[]}
+      root={undefined}
       routes={[]}
     />,
   );
