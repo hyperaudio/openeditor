@@ -501,9 +501,9 @@ const Status = ({
   status: 'wait' | 'process' | 'finish' | 'error' | undefined;
 }): JSX.Element => {
   const [debugMode] = useAtom(debugModeAtom);
-  const color = status2color[status ?? 'default'];
-  const icon = status2icon[status ?? 'default'];
   const currentStep = steps[step] as any;
+  const color = status2color[status ?? 'default'];
+  const icon = currentStep?.type === 'edit' ? <CheckCircleOutlined /> : status2icon[status ?? 'default'];
   const label = currentStep
     ? getTitle({ title: currentStep?.title ?? {}, status: status as string, type: currentStep.type })
     : '?';
