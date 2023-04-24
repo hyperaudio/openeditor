@@ -185,9 +185,28 @@ export const handler = async function (event) {
     status.step = transcodeIndex;
     status.steps[transcodeIndex].status = 'wait';
     try {
+      let describeEndpointsCommandOutput;
+      try {
+        const { Body: stream } = await s3.getObject({
+          Bucket: bucket,
+          Key: `cache/describeEndpointsCommandOutput.json`,
+        });
+        describeEndpointsCommandOutput = JSON.parse(await consumers.text(stream));
+      } catch (ignored) {}
+
       let mediaConvertClient = new MediaConvertClient({ region: REGION });
-      const describeEndpointsCommand = new DescribeEndpointsCommand({ Mode: 'DEFAULT' });
-      const describeEndpointsCommandOutput = await mediaConvertClient.send(describeEndpointsCommand);
+      try {
+        const describeEndpointsCommand = new DescribeEndpointsCommand({ Mode: 'DEFAULT' });
+        describeEndpointsCommandOutput = await mediaConvertClient.send(describeEndpointsCommand);
+
+        await s3.putObject({
+          Bucket: bucket,
+          Key: `cache/describeEndpointsCommandOutput.json`,
+          Body: Buffer.from(JSON.stringify(describeEndpointsCommandOutput)),
+          ContentType: 'application/json',
+        });
+      } catch (ignored) {} // using cached endpoint
+
       mediaConvertClient = new MediaConvertClient({
         endpoint: describeEndpointsCommandOutput.Endpoints[0].Url,
         region: REGION,
@@ -477,6 +496,7 @@ export const handler = async function (event) {
 
     const status = JSON.parse(transcript.status);
     const media = JSON.parse(transcript.media);
+    const metadata = JSON.parse(transcript.metadata);
 
     // TRANSCODE status
     const transcodeIndex = status.steps.findIndex(step => step.type === 'transcode');
@@ -486,6 +506,24 @@ export const handler = async function (event) {
 
     // Media
     media.audio = { ...media.audio, key };
+
+    // IF IMPORTED!
+    if (metadata.PK) {
+      // UPDATE status
+      const mutation = await graphqlRequest({
+        query: transcriptMutation,
+        variables: {
+          input: {
+            id: uuid,
+            status: JSON.stringify(status),
+            media: JSON.stringify(media),
+            _version: transcript._version,
+          },
+        },
+      });
+
+      return;
+    }
 
     // TRANSCRIBE
     const transcribeIndex = status.steps.findIndex(step => step.type === 'transcribe');
