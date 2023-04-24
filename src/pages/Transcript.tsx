@@ -15,6 +15,7 @@ import axios from 'axios';
 import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 import TC, { FRAMERATE } from 'smpte-timecode';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
 import { User, Transcript, Project, Folder } from '../models';
@@ -223,6 +224,8 @@ const TranscriptPage = ({
   );
 
   // console.log({ aspectRatio, frameRate });
+
+  useHotkeys('ctrl+space', () => (playing ? pause() : play()), [playing, play, pause]);
 
   const itemRender = useCallback(
     (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,
