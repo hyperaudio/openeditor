@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-nested-ternary */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable no-restricted-globals */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { Link, useHistory } from 'react-router-dom';
-import { DataStore } from 'aws-amplify';
+import { DataStore, Storage, API } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import Moment from 'react-moment';
 import 'moment-timezone';
@@ -37,6 +38,9 @@ import VideoCameraTwoTone from '@ant-design/icons/VideoCameraTwoTone';
 import AudioTwoTone from '@ant-design/icons/AudioTwoTone';
 import { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '@ant-design/pro-components';
+import axios from 'axios';
+import lunr from 'lunr';
+import Highlighter from 'react-highlight-words';
 
 import { User, Transcript, Project, Folder } from '../models';
 import StatusCard, { StatusTag, StatusBadge } from '../components/cards/StatusCard';
@@ -44,12 +48,14 @@ import UserAvatar, { UserAvatarGroup } from '../components/UserAvatar';
 import DataCard from '../components/cards/DataCard';
 import Footer from '../components/Footer';
 import { darkModeAtom } from '../atoms';
+import indexData from '../data/index.json';
 
 import type { DataNode, DirectoryTreeProps } from 'antd/es/tree';
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
 const { DirectoryTree } = Tree;
+const { Search } = Input;
 
 interface HomeProps {
   uuid: string | undefined;
@@ -139,6 +145,79 @@ const Home = ({
     console.log({ transcript });
     history.push(`/${transcript.id}`);
   }, [history, project, folder, user]);
+
+  // const createTranscripts = useCallback(async () => {
+  //   const t = [];
+  //   const data = [];
+
+  //   // eslint-disable-next-line no-restricted-syntax
+  //   for (const d of data) {
+  //     // console.log(d);
+  //     // eslint-disable-next-line no-await-in-loop
+  //     const t1 = await DataStore.save(
+  //       new Transcript({
+  //         title: d.title,
+  //         parent: d.parent,
+  //         language: 'en-US',
+  //         media: '{}',
+  //         metadata: JSON.stringify({
+  //           PK: d.metadata.PK,
+  //           src: d.metadata.src,
+  //           createdBy: user?.id,
+  //           updatedBy: [user?.id],
+  //         }),
+  //         status: JSON.stringify({
+  //           step: 0,
+  //           steps: [
+  //             {
+  //               type: 'upload',
+  //               status: 'wait',
+  //             },
+  //             {
+  //               type: 'transcode',
+  //             },
+  //             {
+  //               type: 'transcribe',
+  //             },
+  //             {
+  //               type: 'edit',
+  //             },
+  //             {
+  //               type: 'align',
+  //             },
+  //           ],
+  //         }),
+  //       }),
+  //     );
+  //     t.push({ id: t1.id, PK: d.metadata.PK });
+  //   }
+  //   console.log({ t });
+  // }, [user]);
+
+  // const updateTranscript = useCallback(async () => {
+  //   const t = [];
+
+  //   // eslint-disable-next-line no-restricted-syntax
+  //   for (const ID of t) {
+  //     const { id } = ID;
+
+  //     // eslint-disable-next-line no-await-in-loop
+  //     const original = await DataStore.query(Transcript, id);
+  //     // eslint-disable-next-line no-await-in-loop
+  //     await DataStore.save(
+  //       // eslint-disable-next-line no-loop-func
+  //       Transcript.copyOf(original as Transcript, (updated: any) => {
+  //         const originalStatus = JSON.parse(JSON.stringify(original?.status)); // FIXME
+  //         originalStatus.step = 3;
+  //         originalStatus.steps[2].status = 'finish';
+  //         // eslint-disable-next-line no-param-reassign
+  //         updated.status = JSON.stringify({
+  //           ...originalStatus,
+  //         });
+  //       }),
+  //     );
+  //   }
+  // }, []);
 
   const [newFolderModalVisible, setNewFolderModalVisible] = useState(false);
   const [newProjectModalVisible, setNewProjectModalVisible] = useState(false);
@@ -349,6 +428,8 @@ const Home = ({
     [],
   );
 
+  const [searchResults, setSearchResults] = useState<any | null>(null);
+
   return (
     <>
       {contextHolder}
@@ -360,11 +441,12 @@ const Home = ({
           }}
           title={
             <>
-              <span>{project ? project.title : folder ? folder.title : 'OpenEditor'}</span>{' '}
+              <span>{project ? project.title : folder ? folder.title : 'OpenEditor'}</span> <br />
             </>
           }
           extra={
             <Space>
+              <SearchBox root={root} setSearchResults={setSearchResults} />
               {groups.includes('Admins') && !uuid ? (
                 <Button type="default" shape="round" icon={<ProjectOutlined />} onClick={newProject}>
                   New Project
@@ -393,6 +475,21 @@ const Home = ({
               // paddingBottom: '5em',
             }}>
             <Col span={22} offset={1}>
+              {searchResults ? (
+                <div>
+                  {(searchResults as any).results.map((result: any) => (
+                    <div style={{ marginTop: '2em' }}>
+                      <Link to={`/${result.ref}`}>{transcripts?.find(t => result.ref.startsWith(t.id))?.title}</Link>
+                      <br />
+                      <Excerpt
+                        id={result.ref.substring(0, result.ref.indexOf('#'))}
+                        block={result.ref.substring(result.ref.indexOf('#') + 1, result.ref.indexOf('?'))}
+                        query={(searchResults as any).query}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <Table
                 size="middle"
                 rowKey="id"
@@ -433,6 +530,9 @@ const Home = ({
               selectedRowKeys={selectedRowKeys}
             />
           ) : null}
+          {/* <Button onClick={updateTranscript} type="primary">
+            IMPORT
+          </Button> */}
           <DataCard objects={{ user, groups, project, projects, folder, folders, transcripts }} />
           {selectedRowKeys.length > 0 ? (
             <FloatButton.Group shape="square" style={{ right: 94 }}>
@@ -463,6 +563,81 @@ const Home = ({
         </Content>
       </Layout>
     </>
+  );
+};
+
+const Excerpt = ({ id, block, query }: { id: string; block: string; query: string }): JSX.Element => {
+  const [text, setText] = useState('');
+
+  useEffect(() => {
+    API.get('search', '/search', { queryStringParameters: { id, block, query } })
+      .then(response => {
+        // Add your code here
+        // console.log(response);
+        setText(response.text);
+      })
+      .catch(error => {
+        console.log(error.response);
+      });
+  }, [id, block, query]);
+  return (
+    <p>
+      <Highlighter highlightClassName="matchedText" searchWords={query.split(' ')} autoEscape textToHighlight={text} />
+    </p>
+  );
+};
+
+const SearchBox = ({
+  root,
+  setSearchResults,
+}: {
+  root: Project | Folder | undefined;
+  setSearchResults: (results: any | null) => void;
+}): JSX.Element => {
+  const [index, setIndex] = useState<lunr.Index | undefined>(undefined);
+  const [searchString, setSearchString] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      // const { data } = await axios.get(await Storage.get(`indexes/index.json`, { level: 'public' }));
+      setIndex(lunr.Index.load(indexData));
+    })();
+  }, [root]);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchString(e.target.value);
+    // TBD filter title search? (+debounce)
+  }, []);
+
+  const handleSearch = useCallback(() => {
+    if (!index) return;
+    if (searchString.trim().length === 0) {
+      setSearchResults(null);
+      return;
+    }
+    const results = (index as any).search(searchString);
+    // console.log(results);
+
+    // API.get('search', '/search', { queryStringParameters: { query: searchString, index: 'default' } })
+    //   .then(response => {
+    //     console.log(response);
+    //   })
+    //   .catch(error => {
+    //     console.log(error.response);
+    //   });
+
+    setSearchResults({ query: searchString, results });
+  }, [index, searchString, setSearchResults]);
+
+  return (
+    <Search
+      allowClear
+      disabled={!index}
+      placeholder="input search text"
+      value={searchString}
+      onChange={handleSearchChange}
+      onSearch={handleSearch}
+    />
   );
 };
 

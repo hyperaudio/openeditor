@@ -2,7 +2,7 @@
   "version": "1",
   "cognitoConfig": {
     "identityPoolName": "testAuthIdentityPool",
-    "allowUnauthenticatedIdentities": false,
+    "allowUnauthenticatedIdentities": true,
     "resourceNameTruncated": "openedc3c07e4a",
     "userPoolName": "OpenEditor",
     "autoVerifiedAttributes": [
@@ -61,4 +61,4 @@
     "dependsOn": [],
     "adminQueryGroup": "Admins"
   }
-} 
+}

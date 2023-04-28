@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "paths": {
+    "/search": {
+      "name": "/search",
+      "lambdaFunction": "search",
+      "permissions": {
+        "setting": "protected",
+        "auth": [
+          "create",
+          "read",
+          "update",
+          "delete"
+        ],
+        "guest": [
+          "create",
+          "read",
+          "update",
+          "delete"
+        ],
+        "groups": {
+          "Admins": [
+            "create",
+            "read",
+            "update",
+            "delete"
+          ],
+          "Editors": [
+            "create",
+            "read",
+            "update",
+            "delete"
+          ]
+        }
+      }
+    }
+  }
+}

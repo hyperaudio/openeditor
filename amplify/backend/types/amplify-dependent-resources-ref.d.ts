@@ -8,6 +8,11 @@ export type AmplifyDependentResourcesAttributes = {
     "OpenEditor": {
       "GraphQLAPIEndpointOutput": "string",
       "GraphQLAPIIdOutput": "string"
+    },
+    "search": {
+      "ApiId": "string",
+      "ApiName": "string",
+      "RootUrl": "string"
     }
   },
   "auth": {
@@ -42,6 +47,13 @@ export type AmplifyDependentResourcesAttributes = {
     },
     "openeditorlayerffprobe": {
       "Arn": "string"
+    },
+    "search": {
+      "Arn": "string",
+      "LambdaExecutionRole": "string",
+      "LambdaExecutionRoleArn": "string",
+      "Name": "string",
+      "Region": "string"
     }
   },
   "predictions": {

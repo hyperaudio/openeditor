@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "api": {
+      "OpenEditor": [
+        "Query",
+        "Mutation"
+      ]
+    },
+    "storage": {
+      "s3storage": [
+        "create",
+        "read",
+        "update",
+        "delete"
+      ],
+      "Transcript:@model(appsync)": [
+        "read"
+      ]
+    }
+  },
+  "lambdaLayers": []
+}

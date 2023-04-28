@@ -418,9 +418,16 @@ const timecode = ({
   partialTimecode: boolean;
   offset: number | string;
 }): string => {
-  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
-    .add(new TC(offset, frameRate as FRAMERATE))
-    .toString();
+  let tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+
+  try {
+    tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
+      .add(new TC(offset, frameRate as FRAMERATE))
+      .toString();
+  } catch (error) {
+    console.log('offset', error);
+  }
+
   // hh:mm:ss
   if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
 

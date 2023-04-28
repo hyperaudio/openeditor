@@ -36,3 +36,7 @@ span.tc,
   background-color: #ff4d4f !important;
   border-color: #ff4d4f !important;
 }
+
+.matchedText {
+  background-color: #ffff00 !important;
+}
