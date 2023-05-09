@@ -18,12 +18,14 @@ export declare type FolderUpdateFormInputValues = {
     title?: string;
     status?: string;
     metadata?: string;
+    project?: string;
 };
 export declare type FolderUpdateFormValidationValues = {
     parent?: ValidationFunction<string>;
     title?: ValidationFunction<string>;
     status?: ValidationFunction<string>;
     metadata?: ValidationFunction<string>;
+    project?: ValidationFunction<string>;
 };
 export declare type PrimitiveOverrideProps<T> = Partial<T> & React.DOMAttributes<HTMLDivElement>;
 export declare type FolderUpdateFormOverridesProps = {
@@ -32,6 +34,7 @@ export declare type FolderUpdateFormOverridesProps = {
     title?: PrimitiveOverrideProps<TextFieldProps>;
     status?: PrimitiveOverrideProps<TextAreaFieldProps>;
     metadata?: PrimitiveOverrideProps<TextAreaFieldProps>;
+    project?: PrimitiveOverrideProps<TextFieldProps>;
 } & EscapeHatchProps;
 export declare type FolderUpdateFormProps = React.PropsWithChildren<{
     overrides?: FolderUpdateFormOverridesProps | undefined | null;

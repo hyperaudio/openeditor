@@ -213,7 +213,7 @@ const PageWrapper = ({
 
     if (folder || transcript) {
       const parents = getParents(uuid, projects ?? [], folders ?? [], transcripts ?? []);
-      const root = parents?.[0];
+      const root = parents?.slice(-1)?.[0];
 
       return [
         root,

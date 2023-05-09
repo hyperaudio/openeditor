@@ -23,7 +23,8 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import awsServerlessExpressMiddleware from 'aws-serverless-express/middleware.js';
 import { S3, S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import lunr from 'lunr';
+import MiniSearch from 'minisearch';
+import pako from 'pako';
 
 const REGION = process.env.REGION || process.env.AWS_REGION || 'us-east-1';
 const BUCKET = process.env.STORAGE_S3STORAGE_BUCKETNAME;
@@ -45,30 +46,75 @@ const server = awsServerlessExpress.createServer(app);
 
 app.get('/search', async (req, res) => {
   // search index
-  if (req.query.index) {
-    const { index, query } = req.query;
+  // if (req.query.index) {
+  //   const { index, query } = req.query;
 
-    const { Body: stream } = await s3.getObject({
-      Bucket: BUCKET,
-      Key: `public/indexes/index.json`, // TODO use index id
-    });
-    const data = JSON.parse(await consumers.text(stream));
+  //   const { Body: stream } = await s3.getObject({
+  //     Bucket: BUCKET,
+  //     Key: `public/indexes/index.json`, // TODO use index id
+  //   });
+  //   const data = JSON.parse(await consumers.text(stream));
 
-    const idx = lunr.Index.load(data);
-    return res.json(idx.search(searchString));
-  }
+  //   const idx = lunr.Index.load(data);
+  //   return res.json(idx.search(searchString));
+  // }
 
   // excerpt
   if (req.query.id) {
-    const { id, block, query } = req.query;
+    const { id, block, terms, query } = req.query;
 
-    const { Body: stream } = await s3.getObject({
+    const { Body: stream, ContentEncoding } = await s3.getObject({
       Bucket: BUCKET,
       Key: `public/transcript/${id}/transcript.json`,
     });
-    const { speakers, blocks } = JSON.parse(await consumers.text(stream));
 
-    return res.json(blocks.find(b => b.key === block) ?? {});
+    let data;
+    if (ContentEncoding === 'gzip') {
+      data = JSON.parse(pako.inflate(await consumers.buffer(stream), { to: 'string' }));
+    } else {
+      data = JSON.parse(await consumers.text(stream));
+    }
+
+    const { speakers, blocks } = data;
+
+    if (block) return res.json([blocks.find(b => b.key === block)]);
+
+    // TBD build index vs load index saved at save time
+    if (query) {
+      const miniSearch = new MiniSearch({
+        fields: ['text'],
+        storeFields: ['speaker', 'start', 'end'],
+      });
+
+      miniSearch.addAll(
+        blocks.map(({ key: id, text, data }) => ({
+          id,
+          text,
+          speaker: speakers[data?.speaker]?.name ?? '',
+          start: data?.start ?? 0,
+          end: data?.end ?? 0,
+        })),
+      );
+
+      const results = miniSearch.search(query, {
+        combineWith: 'AND',
+        prefix: true,
+        // fuzzy: 0.1,
+      });
+
+      return res.json(
+        results
+          .map(({ id }) => blocks.find(b => b.key === id))
+          .map(b => ({ ...b, data: { ...b.data, speaker: speakers[b?.data?.speaker]?.name ?? '' } })),
+      );
+    }
+
+    const tokens = terms.split(' ');
+    return res.json(
+      blocks
+        .filter(b => tokens.map(t => b.text.indexOf(t)).some(i => i > -1))
+        .map(b => ({ ...b, data: { ...b.data, speaker: speakers[b?.data?.speaker]?.name ?? '' } })),
+    );
   }
 
   res.json({ success: 'get call succeed!', url: req.url, query: req.query });

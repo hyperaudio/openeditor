@@ -34,11 +34,13 @@ export default function FolderUpdateForm(props) {
     title: "",
     status: "",
     metadata: "",
+    project: "",
   };
   const [parent, setParent] = React.useState(initialValues.parent);
   const [title, setTitle] = React.useState(initialValues.title);
   const [status, setStatus] = React.useState(initialValues.status);
   const [metadata, setMetadata] = React.useState(initialValues.metadata);
+  const [project, setProject] = React.useState(initialValues.project);
   const [errors, setErrors] = React.useState({});
   const resetStateValues = () => {
     const cleanValues = folderRecord
@@ -56,6 +58,7 @@ export default function FolderUpdateForm(props) {
         ? cleanValues.metadata
         : JSON.stringify(cleanValues.metadata)
     );
+    setProject(cleanValues.project);
     setErrors({});
   };
   const [folderRecord, setFolderRecord] = React.useState(folder);
@@ -72,6 +75,7 @@ export default function FolderUpdateForm(props) {
     title: [{ type: "Required" }],
     status: [{ type: "Required" }, { type: "JSON" }],
     metadata: [{ type: "Required" }, { type: "JSON" }],
+    project: [],
   };
   const runValidationTasks = async (
     fieldName,
@@ -103,6 +107,7 @@ export default function FolderUpdateForm(props) {
           title,
           status,
           metadata,
+          project,
         };
         const validationResponses = await Promise.all(
           Object.keys(validations).reduce((promises, fieldName) => {
@@ -162,6 +167,7 @@ export default function FolderUpdateForm(props) {
               title,
               status,
               metadata,
+              project,
             };
             const result = onChange(modelFields);
             value = result?.parent ?? value;
@@ -189,6 +195,7 @@ export default function FolderUpdateForm(props) {
               title: value,
               status,
               metadata,
+              project,
             };
             const result = onChange(modelFields);
             value = result?.title ?? value;
@@ -216,6 +223,7 @@ export default function FolderUpdateForm(props) {
               title,
               status: value,
               metadata,
+              project,
             };
             const result = onChange(modelFields);
             value = result?.status ?? value;
@@ -243,6 +251,7 @@ export default function FolderUpdateForm(props) {
               title,
               status,
               metadata: value,
+              project,
             };
             const result = onChange(modelFields);
             value = result?.metadata ?? value;
@@ -257,6 +266,34 @@ export default function FolderUpdateForm(props) {
         hasError={errors.metadata?.hasError}
         {...getOverrideProps(overrides, "metadata")}
       ></TextAreaField>
+      <TextField
+        label="Project"
+        isRequired={false}
+        isReadOnly={false}
+        value={project}
+        onChange={(e) => {
+          let { value } = e.target;
+          if (onChange) {
+            const modelFields = {
+              parent,
+              title,
+              status,
+              metadata,
+              project: value,
+            };
+            const result = onChange(modelFields);
+            value = result?.project ?? value;
+          }
+          if (errors.project?.hasError) {
+            runValidationTasks("project", value);
+          }
+          setProject(value);
+        }}
+        onBlur={() => runValidationTasks("project", project)}
+        errorMessage={errors.project?.errorMessage}
+        hasError={errors.project?.hasError}
+        {...getOverrideProps(overrides, "project")}
+      ></TextField>
       <Flex
         justifyContent="space-between"
         {...getOverrideProps(overrides, "CTAFlex")}

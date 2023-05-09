@@ -167,6 +167,13 @@ export const schema = {
                     "isRequired": true,
                     "attributes": []
                 },
+                "project": {
+                    "name": "project",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
                 "createdAt": {
                     "name": "createdAt",
                     "isArray": false,
@@ -305,6 +312,13 @@ export const schema = {
                     "isArray": false,
                     "type": "AWSJSON",
                     "isRequired": true,
+                    "attributes": []
+                },
+                "project": {
+                    "name": "project",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
                     "attributes": []
                 },
                 "createdAt": {
@@ -508,5 +522,5 @@ export const schema = {
     "enums": {},
     "nonModels": {},
     "codegenVersion": "3.3.6",
-    "version": "af90d2a0d1a62720cca3f1169a4e3fbd"
+    "version": "73b76780a0e8b6c6091d3ad1f1572bdc"
 };

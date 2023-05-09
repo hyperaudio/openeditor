@@ -17,12 +17,14 @@ export declare type FolderCreateFormInputValues = {
     title?: string;
     status?: string;
     metadata?: string;
+    project?: string;
 };
 export declare type FolderCreateFormValidationValues = {
     parent?: ValidationFunction<string>;
     title?: ValidationFunction<string>;
     status?: ValidationFunction<string>;
     metadata?: ValidationFunction<string>;
+    project?: ValidationFunction<string>;
 };
 export declare type PrimitiveOverrideProps<T> = Partial<T> & React.DOMAttributes<HTMLDivElement>;
 export declare type FolderCreateFormOverridesProps = {
@@ -31,6 +33,7 @@ export declare type FolderCreateFormOverridesProps = {
     title?: PrimitiveOverrideProps<TextFieldProps>;
     status?: PrimitiveOverrideProps<TextAreaFieldProps>;
     metadata?: PrimitiveOverrideProps<TextAreaFieldProps>;
+    project?: PrimitiveOverrideProps<TextFieldProps>;
 } & EscapeHatchProps;
 export declare type FolderCreateFormProps = React.PropsWithChildren<{
     overrides?: FolderCreateFormOverridesProps | undefined | null;

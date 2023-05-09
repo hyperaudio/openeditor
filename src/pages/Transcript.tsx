@@ -16,6 +16,7 @@ import pako from 'pako';
 import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 import TC, { FRAMERATE } from 'smpte-timecode';
 import { useHotkeys } from 'react-hotkeys-hook';
+import MiniSearch from 'minisearch';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
 import { User, Transcript, Project, Folder } from '../models';
@@ -149,6 +150,37 @@ const TranscriptPage = ({
         setSavingProgress(percentCompleted);
       },
     });
+
+    // save index
+    try {
+      const miniSearch = new MiniSearch({
+        fields: ['text'],
+        storeFields: ['speaker', 'start', 'end'],
+      });
+
+      miniSearch.addAll(
+        draft.blocks.map(({ key: id, text, data }) => ({
+          id,
+          text,
+          speaker: speakers[data?.speaker]?.name ?? '',
+          start: data?.start ?? 0,
+          end: data?.end ?? 0,
+        })),
+      );
+
+      await Storage.put(
+        `transcript/${uuid}/index.json`,
+        new Blob([pako.gzip(new TextEncoder().encode(JSON.stringify(miniSearch)))]),
+        {
+          level: 'public',
+          contentType: 'application/json',
+          contentEncoding: 'gzip',
+        },
+      );
+    } catch (ignored) {
+      console.log(ignored);
+    }
+    // end save index
 
     setSaving(1);
 

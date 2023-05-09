@@ -10,6 +10,7 @@ import { useAtom } from 'jotai';
 import Moment from 'react-moment';
 import 'moment-timezone';
 import TC, { FRAMERATE } from 'smpte-timecode';
+import pako from 'pako';
 import {
   Layout,
   Col,
@@ -39,8 +40,9 @@ import AudioTwoTone from '@ant-design/icons/AudioTwoTone';
 import { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
-import lunr from 'lunr';
+import MiniSearch from 'minisearch';
 import Highlighter from 'react-highlight-words';
+import { RawDraftContentBlock } from 'draft-js';
 
 import { User, Transcript, Project, Folder } from '../models';
 import StatusCard, { StatusTag, StatusBadge } from '../components/cards/StatusCard';
@@ -48,7 +50,6 @@ import UserAvatar, { UserAvatarGroup } from '../components/UserAvatar';
 import DataCard from '../components/cards/DataCard';
 import Footer from '../components/Footer';
 import { darkModeAtom } from '../atoms';
-import indexData from '../data/index.json';
 
 import type { DataNode, DirectoryTreeProps } from 'antd/es/tree';
 
@@ -297,6 +298,9 @@ const Home = ({
               ? timecode({
                   seconds: status?.steps?.[0]?.data?.ffprobe?.streams?.[0]?.duration ?? 0,
                   partialTimecode: true,
+                  frameRate: 1000,
+                  dropFrame: false,
+                  offset: 0,
                 })
               : null}
           </span>
@@ -446,7 +450,7 @@ const Home = ({
           }
           extra={
             <Space>
-              <SearchBox root={root} setSearchResults={setSearchResults} />
+              <SearchBox {...{ root, folders, transcripts, setSearchResults }} />
               {groups.includes('Admins') && !uuid ? (
                 <Button type="default" shape="round" icon={<ProjectOutlined />} onClick={newProject}>
                   New Project
@@ -477,17 +481,22 @@ const Home = ({
             <Col span={22} offset={1}>
               {searchResults ? (
                 <div>
-                  {(searchResults as any).results.map((result: any) => (
-                    <div style={{ marginTop: '2em' }}>
-                      <Link to={`/${result.ref}`}>{transcripts?.find(t => result.ref.startsWith(t.id))?.title}</Link>
-                      <br />
-                      <Excerpt
-                        id={result.ref.substring(0, result.ref.indexOf('#'))}
-                        block={result.ref.substring(result.ref.indexOf('#') + 1, result.ref.indexOf('?'))}
-                        query={(searchResults as any).query}
-                      />
-                    </div>
-                  ))}
+                  {(searchResults as any).results.map((result: any) => {
+                    const transcript = transcripts?.find(t => result.id === t.id);
+
+                    return (
+                      <div style={{ marginTop: '2em' }}>
+                        <Link to={`/${result.id}`}>{transcript?.title}</Link>
+                        <br />
+                        <Excerpt
+                          id={result.id}
+                          terms={result.terms}
+                          query={(searchResults as any).query}
+                          transcript={transcript as Transcript}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
               <Table
@@ -533,7 +542,7 @@ const Home = ({
           {/* <Button onClick={updateTranscript} type="primary">
             IMPORT
           </Button> */}
-          <DataCard objects={{ user, groups, project, projects, folder, folders, transcripts }} />
+          <DataCard objects={{ user, groups, root, project, projects, folder, folders, transcripts }} />
           {selectedRowKeys.length > 0 ? (
             <FloatButton.Group shape="square" style={{ right: 94 }}>
               {root ? (
@@ -566,41 +575,100 @@ const Home = ({
   );
 };
 
-const Excerpt = ({ id, block, query }: { id: string; block: string; query: string }): JSX.Element => {
-  const [text, setText] = useState('');
+const Excerpt = ({
+  id,
+  terms,
+  query,
+  transcript,
+}: {
+  id: string;
+  terms: string[];
+  query: string;
+  transcript: Transcript;
+}): JSX.Element => {
+  const [results, setResults] = useState<RawDraftContentBlock[]>([]);
+
+  const originalFrameRate = useMemo(() => {
+    const videoStream = (transcript as any)?.status?.steps?.[0]?.data?.ffprobe?.streams.find(
+      (stream: any) => stream.codec_type === 'video',
+    );
+
+    // eslint-disable-next-line dot-notation, no-eval
+    if (videoStream?.['r_frame_rate']) return parseFloat(parseFloat(eval(videoStream?.['r_frame_rate'])).toFixed(2));
+
+    return null;
+  }, [transcript]);
+
+  const frameRate = useMemo(
+    () => (transcript as any)?.metadata.frameRate ?? originalFrameRate ?? 1000,
+    [transcript, originalFrameRate],
+  );
+
+  const offset = useMemo(
+    () => (transcript as any)?.metadata.offset ?? new TC(0, frameRate as FRAMERATE).toString(),
+    [transcript, frameRate],
+  );
 
   useEffect(() => {
-    API.get('search', '/search', { queryStringParameters: { id, block, query } })
+    API.get('search', '/search', { queryStringParameters: { id, terms: terms.join(' '), query } })
       .then(response => {
-        // Add your code here
-        // console.log(response);
-        setText(response.text);
+        setResults(response);
       })
       .catch(error => {
         console.log(error.response);
       });
-  }, [id, block, query]);
+  }, [id, terms, query]);
   return (
-    <p>
-      <Highlighter highlightClassName="matchedText" searchWords={query.split(' ')} autoEscape textToHighlight={text} />
-    </p>
+    <>
+      {results.map(block => (
+        <p key={block.key}>
+          <code>
+            {timecode({
+              seconds: (block.data as any).start ?? 0,
+              frameRate,
+              offset,
+              partialTimecode: false,
+            })}
+            &thinsp;–&thinsp;
+            {timecode({
+              seconds: (block.data as any).end ?? 0,
+              frameRate,
+              offset,
+              partialTimecode: false,
+            })}
+          </code>
+          <br />
+          <strong>{`${(block.data as any)?.speaker}: `}</strong>
+          <Highlighter highlightClassName="matchedText" searchWords={terms} autoEscape textToHighlight={block.text} />
+        </p>
+      ))}
+    </>
   );
 };
 
 const SearchBox = ({
   root,
+  folders,
+  transcripts,
   setSearchResults,
 }: {
   root: Project | Folder | undefined;
+  folders: Folder[];
+  transcripts: Transcript[];
   setSearchResults: (results: any | null) => void;
 }): JSX.Element => {
-  const [index, setIndex] = useState<lunr.Index | undefined>(undefined);
+  const [index, setIndex] = useState<any | undefined | null>(undefined);
   const [searchString, setSearchString] = useState('');
 
   useEffect(() => {
+    if (!root) return;
     (async () => {
-      // const { data } = await axios.get(await Storage.get(`indexes/index.json`, { level: 'public' }));
-      setIndex(lunr.Index.load(indexData));
+      try {
+        const { data } = await axios.get(await Storage.get(`indexes/${root.id}/index.json`, { level: 'public' }));
+        setIndex(data);
+      } catch (error) {
+        setIndex(null);
+      }
     })();
   }, [root]);
 
@@ -615,8 +683,13 @@ const SearchBox = ({
       setSearchResults(null);
       return;
     }
-    const results = (index as any).search(searchString);
-    // console.log(results);
+    console.log({ index });
+    const results = MiniSearch.loadJSON(JSON.stringify(index), { fields: ['title', 'text'] }).search(searchString, {
+      combineWith: 'AND',
+      prefix: true,
+      // fuzzy: 0.1,
+    });
+    console.log(results);
 
     // API.get('search', '/search', { queryStringParameters: { query: searchString, index: 'default' } })
     //   .then(response => {
@@ -629,7 +702,56 @@ const SearchBox = ({
     setSearchResults({ query: searchString, results });
   }, [index, searchString, setSearchResults]);
 
-  return (
+  const handleIndex = useCallback(async () => {
+    if (!root) return;
+    // find all transcripts of current project/root
+    const t = [];
+    const q = [root.id];
+    while (q.length > 0) {
+      const f = q.pop();
+      const children = transcripts.filter(t => t.parent === f);
+      t.push(...children);
+      const nodes = folders.filter(t => t.parent === f);
+      q.push(...nodes.map(f => f.id));
+    }
+
+    console.log({ t, q });
+
+    const documents = (
+      await Promise.allSettled(
+        t
+          .filter(t => !(t.metadata as any).deleted)
+          .map(async t => {
+            const { data } = await axios.get(
+              await Storage.get(`transcript/${t.id}/transcript.json`, { level: 'public' }),
+            );
+
+            const text = data.blocks.map((b: RawDraftContentBlock) => b.text).join('\n');
+            return { id: t.id, title: t.title, text };
+          }),
+      )
+    )
+      .filter(r => r.status === 'fulfilled')
+      .map(r => (r as any).value);
+
+    console.log({ documents });
+
+    const miniSearch = new MiniSearch({ fields: ['title', 'text'] });
+    miniSearch.addAll(documents);
+    await Storage.put(
+      `indexes/${root.id}/index.json`,
+      new Blob([pako.gzip(new TextEncoder().encode(JSON.stringify(miniSearch)))]),
+      {
+        level: 'public',
+        contentType: 'application/json',
+        contentEncoding: 'gzip',
+      },
+    );
+  }, [root, folders, transcripts]);
+
+  return index === null ? (
+    <Button onClick={handleIndex}>Index Project</Button>
+  ) : (
     <Search
       allowClear
       disabled={!index}
@@ -847,8 +969,45 @@ const MoveToFolderModal = ({
 };
 
 // FIXME: DRY, move to utils
-const timecode = ({ seconds = 0, frameRate = 1000, dropFrame = false, partialTimecode = false }): string => {
-  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+// const timecode = ({ seconds = 0, frameRate = 1000, dropFrame = false, partialTimecode = false }): string => {
+//   const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+//   // hh:mm:ss
+//   if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
+
+//   // hh:mm:ss.mmmm
+//   if (frameRate === 1000) {
+//     const [hh, mm, ss, mmm] = tc.split(':');
+//     if (mmm.length === 1) return `${hh}:${mm}:${ss}.${mmm}00`;
+//     if (mmm.length === 2) return `${hh}:${mm}:${ss}.${mmm}0`;
+//     return `${hh}:${mm}:${ss}.${mmm}`;
+//   }
+
+//   return tc;
+// };
+
+const timecode = ({
+  seconds = 0,
+  frameRate = 1000,
+  dropFrame = false,
+  partialTimecode = false,
+  offset = 0,
+}: {
+  seconds: number | undefined;
+  frameRate: FRAMERATE | number;
+  dropFrame?: boolean;
+  partialTimecode: boolean;
+  offset: number | string;
+}): string => {
+  let tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+
+  try {
+    tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
+      .add(new TC(offset, frameRate as FRAMERATE))
+      .toString();
+  } catch (error) {
+    console.log('offset', error);
+  }
+
   // hh:mm:ss
   if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
 

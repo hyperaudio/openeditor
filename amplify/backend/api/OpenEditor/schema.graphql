@@ -13,6 +13,7 @@ type Folder @model @auth(rules: [{allow: private, operations: [read]}, {allow: o
   title: String!
   status: AWSJSON!
   metadata: AWSJSON!
+  project: String
 }
 
 type Transcript @model @auth(rules: [{allow: private, operations: [read]}, {allow: private, provider: iam}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read, create, update]}, {allow: owner}]) {
@@ -23,6 +24,7 @@ type Transcript @model @auth(rules: [{allow: private, operations: [read]}, {allo
   media: AWSJSON!
   status: AWSJSON!
   metadata: AWSJSON!
+  project: String
 }
 
 type User @model @auth(rules: [{allow: private, operations: [read]}, {allow: groups, groups: ["Admins"], operations: [read, update, delete]}, {allow: owner}]) {

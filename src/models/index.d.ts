@@ -52,6 +52,7 @@ type EagerFolder = {
   readonly title: string;
   readonly status: string;
   readonly metadata: string;
+  readonly project?: string | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
@@ -62,6 +63,7 @@ type LazyFolder = {
   readonly title: string;
   readonly status: string;
   readonly metadata: string;
+  readonly project?: string | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
@@ -80,6 +82,7 @@ type EagerTranscript = {
   readonly media: string;
   readonly status: string;
   readonly metadata: string;
+  readonly project?: string | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
@@ -92,6 +95,7 @@ type LazyTranscript = {
   readonly media: string;
   readonly status: string;
   readonly metadata: string;
+  readonly project?: string | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
