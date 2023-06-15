@@ -4,7 +4,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable no-restricted-globals */
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
-import { Link, useHistory } from 'react-router-dom';
+import { Link, useHistory, useLocation } from 'react-router-dom';
 import { DataStore, Storage, API } from 'aws-amplify';
 import { useAtom } from 'jotai';
 import Moment from 'react-moment';
@@ -74,6 +74,11 @@ interface HomeProps {
   routes: any[];
 }
 
+const useQuery = (): URLSearchParams => {
+  const { search } = useLocation();
+  return useMemo(() => new URLSearchParams(search), [search]);
+};
+
 const Home = ({
   uuid,
   user,
@@ -89,6 +94,7 @@ const Home = ({
   routes = [],
 }: HomeProps): JSX.Element => {
   const history = useHistory();
+  const query = useQuery();
   const [darkMode] = useAtom(darkModeAtom);
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -432,6 +438,7 @@ const Home = ({
     [],
   );
 
+  const search = useMemo(() => query.get('search'), [query]);
   const [searchResults, setSearchResults] = useState<any | null>(null);
 
   return (
@@ -479,15 +486,16 @@ const Home = ({
               // paddingBottom: '5em',
             }}>
             <Col span={22} offset={1}>
-              {searchResults ? (
+              {search && searchResults ? (
                 <div>
                   {(searchResults as any).results.map((result: any) => {
                     const transcript = transcripts?.find(t => result.id === t.id);
 
                     return (
-                      <div style={{ marginTop: '2em' }}>
-                        <Link to={`/${result.id}`}>{transcript?.title}</Link>
-                        <br />
+                      <div key={result.id} style={{ marginTop: '2em' }}>
+                        <h3>
+                          <Link to={`/${result.id}`}>{transcript?.title}</Link>
+                        </h3>
                         <Excerpt
                           id={result.id}
                           terms={result.terms}
@@ -619,30 +627,74 @@ const Excerpt = ({
       });
   }, [id, terms, query]);
   return (
-    <>
-      {results.map(block => (
+    <div style={{ marginLeft: '3em' }}>
+      {results.slice(0, 3).map(block => (
         <p key={block.key}>
-          <code>
-            {timecode({
-              seconds: (block.data as any).start ?? 0,
-              frameRate,
-              offset,
-              partialTimecode: false,
-            })}
-            &thinsp;–&thinsp;
-            {timecode({
-              seconds: (block.data as any).end ?? 0,
-              frameRate,
-              offset,
-              partialTimecode: false,
-            })}
-          </code>
+          <Link
+            to={`/${id}?t=${(block.data as any).start ?? 0},${(block.data as any).end ?? 0}&block=${
+              block.key
+            }&q=${encodeURIComponent(query)}`}>
+            <code>
+              {timecode({
+                seconds: (block.data as any).start ?? 0,
+                frameRate,
+                offset,
+                partialTimecode: false,
+              })}
+              &thinsp;–&thinsp;
+              {timecode({
+                seconds: (block.data as any).end ?? 0,
+                frameRate,
+                offset,
+                partialTimecode: false,
+              })}
+            </code>
+          </Link>
           <br />
           <strong>{`${(block.data as any)?.speaker}: `}</strong>
           <Highlighter highlightClassName="matchedText" searchWords={terms} autoEscape textToHighlight={block.text} />
         </p>
       ))}
-    </>
+      {results.length > 3 ? (
+        <details>
+          <summary>
+            <small>{results.length - 3} more</small>
+          </summary>
+          {results.slice(3).map(block => (
+            <p key={block.key}>
+              <Link
+                to={`/${id}?t=${(block.data as any).start ?? 0},${(block.data as any).end ?? 0}&block=${
+                  block.key
+                }&q=${encodeURIComponent(query)}`}>
+                <code>
+                  {timecode({
+                    seconds: (block.data as any).start ?? 0,
+                    frameRate,
+                    offset,
+                    partialTimecode: false,
+                  })}
+                  &thinsp;–&thinsp;
+                  {timecode({
+                    seconds: (block.data as any).end ?? 0,
+                    frameRate,
+                    offset,
+                    partialTimecode: false,
+                  })}
+                </code>
+              </Link>
+              <br />
+              <strong>{`${(block.data as any)?.speaker}: `}</strong>
+              <Highlighter
+                highlightClassName="matchedText"
+                searchWords={terms}
+                autoEscape
+                textToHighlight={block.text}
+              />
+            </p>
+          ))}
+        </details>
+      ) : null}
+    </div>
   );
 };
 
@@ -657,15 +709,26 @@ const SearchBox = ({
   transcripts: Transcript[];
   setSearchResults: (results: any | null) => void;
 }): JSX.Element => {
+  const history = useHistory();
+  const query = useQuery();
   const [index, setIndex] = useState<any | undefined | null>(undefined);
   const [searchString, setSearchString] = useState('');
+
+  const search = useMemo(() => query.get('search'), [query]);
 
   useEffect(() => {
     if (!root) return;
     (async () => {
       try {
-        const { data } = await axios.get(await Storage.get(`indexes/${root.id}/index.json`, { level: 'public' }));
+        window.Indexes = window.Indexes ?? {};
+        let data = window.Indexes[root.id];
+        if (!data) {
+          const result = await axios.get(await Storage.get(`indexes/${root.id}/index.json`, { level: 'public' }));
+          data = result.data;
+        }
         setIndex(data);
+
+        window.Indexes[root.id] = data;
       } catch (error) {
         setIndex(null);
       }
@@ -678,18 +741,19 @@ const SearchBox = ({
   }, []);
 
   const handleSearch = useCallback(() => {
+    if (!root) return;
     if (!index) return;
     if (searchString.trim().length === 0) {
       setSearchResults(null);
       return;
     }
-    console.log({ index });
-    const results = MiniSearch.loadJSON(JSON.stringify(index), { fields: ['title', 'text'] }).search(searchString, {
-      combineWith: 'AND',
-      prefix: true,
-      // fuzzy: 0.1,
-    });
-    console.log(results);
+    // console.log({ index });
+    // const results = MiniSearch.loadJSON(JSON.stringify(index), { fields: ['title', 'text'] }).search(searchString, {
+    //   combineWith: 'AND',
+    //   prefix: true,
+    //   // fuzzy: 0.1,
+    // });
+    // console.log(results);
 
     // API.get('search', '/search', { queryStringParameters: { query: searchString, index: 'default' } })
     //   .then(response => {
@@ -698,9 +762,31 @@ const SearchBox = ({
     //   .catch(error => {
     //     console.log(error.response);
     //   });
+    history.push(`/${root.id}?search=${searchString.trim()}`);
+    // setSearchResults({ query: searchString, results });
+  }, [index, searchString, setSearchResults, root, history]);
 
-    setSearchResults({ query: searchString, results });
-  }, [index, searchString, setSearchResults]);
+  useEffect(() => {
+    if (!root) return;
+    if (!index) return;
+    if (!search) return;
+
+    if (search.trim().length === 0) {
+      setSearchResults(null);
+      return;
+    }
+    setSearchString(search);
+
+    const results = MiniSearch.loadJSON(JSON.stringify(index), { fields: ['title', 'text'] }).search(search, {
+      combineWith: 'AND',
+      prefix: true,
+      // fuzzy: 0.1,
+    });
+    console.log(results);
+
+    // history.push(`/${root.id}?search=${searchString.trim()}`);
+    setSearchResults({ query: search, results });
+  }, [index, root, search, setSearchResults]);
 
   const handleIndex = useCallback(async () => {
     if (!root) return;
@@ -754,7 +840,7 @@ const SearchBox = ({
   ) : (
     <Search
       allowClear
-      disabled={!index}
+      disabled={!index || !root?.id}
       placeholder="input search text"
       value={searchString}
       onChange={handleSearchChange}
@@ -894,7 +980,7 @@ const MoveToFolderModal = ({
     };
 
     const findChildren = (node: DataNode): DataNode | void => {
-      const children = folders.filter(f => f.parent === node.key);
+      const children = folders.filter(f => f.parent === node.key && !(f.metadata as any).deleted);
       if (children.length > 0) {
         // eslint-disable-next-line no-param-reassign
         node.children = children.map(c => ({

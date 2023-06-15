@@ -4,9 +4,10 @@ import { schema } from './schema';
 
 
 
-const { Project, Folder, Transcript, User } = initSchema(schema);
+const { ProjectGroup, Project, Folder, Transcript, User } = initSchema(schema);
 
 export {
+  ProjectGroup,
   Project,
   Folder,
   Transcript,

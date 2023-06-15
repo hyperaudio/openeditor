@@ -4,12 +4,14 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObject } from 'react';
-import { useParams, Link, useHistory } from 'react-router-dom';
+import { useParams, Link, useHistory, useLocation } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
-import { Layout, Col, Row, Drawer, FloatButton, Empty, Skeleton, Button, Space, Divider } from 'antd';
+import { Layout, Col, Row, Drawer, FloatButton, Empty, Skeleton, Button, Space, Divider, Form, Input } from 'antd';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
 import EditOutlined from '@ant-design/icons/EditOutlined';
+import SearchOutlined from '@ant-design/icons/SearchOutlined';
+import RetweetOutlined from '@ant-design/icons/RetweetOutlined';
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import pako from 'pako';
@@ -17,6 +19,8 @@ import { EditorState, ContentState, RawDraftContentBlock } from 'draft-js';
 import TC, { FRAMERATE } from 'smpte-timecode';
 import { useHotkeys } from 'react-hotkeys-hook';
 import MiniSearch from 'minisearch';
+import { useDebounce } from 'usehooks-ts';
+import useInterval from 'use-interval';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
 import { User, Transcript, Project, Folder } from '../models';
@@ -29,6 +33,11 @@ import MetadataCard from '../components/cards/MetadataCard';
 import Footer from '../components/Footer';
 
 const { Content } = Layout;
+
+const useQuery = (): URLSearchParams => {
+  const { search } = useLocation();
+  return useMemo(() => new URLSearchParams(search), [search]);
+};
 
 interface TranscriptPageProps {
   user: User | undefined;
@@ -53,6 +62,7 @@ const TranscriptPage = ({
   routes = [],
 }: TranscriptPageProps): JSX.Element => {
   const history = useHistory();
+  const query = useQuery();
   const params = useParams();
   const { uuid } = params as Record<string, string>;
 
@@ -119,6 +129,7 @@ const TranscriptPage = ({
 
   // TODO window.onbeforeunload
   const unsavedChanges = useMemo(() => draft?.contentState !== saved?.contentState, [draft, saved]);
+  const debouncedUnsavedChanges = useDebounce(unsavedChanges, 1e4);
 
   const handleSave = useCallback(async () => {
     if (!user || !transcript || !draft) return;
@@ -144,6 +155,7 @@ const TranscriptPage = ({
       metadata: {
         user: user.id,
         language: transcript.language,
+        // autosave: autosave ? 'true' : 'false',
       },
       progressCallback(progress) {
         const percentCompleted = Math.round((progress.loaded * 100) / progress.total);
@@ -189,6 +201,17 @@ const TranscriptPage = ({
     setTimeout(() => setSaving(0), 500);
     setSaved(draft);
   }, [speakers, draft, uuid, transcript, user]);
+
+  const autoSave = useCallback(() => {
+    if (!unsavedChanges || saving !== 0) return;
+    if (saved === undefined) {
+      setSaved(draft);
+    } else handleSave(); // TODO tag metadata on autosave
+  }, [saving, unsavedChanges, draft, saved, handleSave]);
+
+  useInterval(() => {
+    autoSave();
+  }, 30 * 1e3);
 
   const [exportDrawerVisible, setExportDrawerVisible] = useState(false);
   const openExportDrawer = useCallback(() => setExportDrawerVisible(true), []);
@@ -255,7 +278,32 @@ const TranscriptPage = ({
     [transcript, frameRate],
   );
 
-  // console.log({ aspectRatio, frameRate });
+  const blockKey = useMemo(() => query.get('block'), [query]);
+  // const search = useMemo(() => query.get('search'), [query]);
+  const [foundBlockKey, setFoundBlockKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!blockKey || !draft) return;
+    setTimeout(() => {
+      const block = draft.blocks.find(({ key }) => key === blockKey);
+
+      if (!block) return;
+      seekTo(block?.data?.start ?? 0);
+
+      const blockEl = document.querySelector(`*[data-offset-key="${blockKey}-0-0"]`);
+
+      if (blockEl && !foundBlockKey) {
+        setFoundBlockKey(blockKey);
+        blockEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (blockEl as any)?.style.setProperty('outline', '2px solid #1890ff');
+        setTimeout(() => {
+          (blockEl as any)?.style.setProperty('outline', 'none');
+        }, 5000);
+      }
+    }, 1000);
+  }, [blockKey, draft, seekTo, foundBlockKey]);
+
+  const [searchDrawerVisible, setSearchDrawerVisible] = useState(false);
 
   useHotkeys('ctrl+space', () => (playing ? pause() : play()), [playing, play, pause]);
 
@@ -335,7 +383,10 @@ const TranscriptPage = ({
         </Row>
       </Content>
       <Footer />
-      <FloatButton.BackTop style={{ bottom: 150 }} />
+      <FloatButton.Group style={{ right: 94 }}>
+        <FloatButton.BackTop style={{ bottom: 150 }} />
+        <FloatButton icon={<SearchOutlined />} type="primary" onClick={() => setSearchDrawerVisible(true)} />
+      </FloatButton.Group>
       <Drawer
         destroyOnClose
         title={transcript?.title}
@@ -365,8 +416,61 @@ const TranscriptPage = ({
         width={600}>
         <ExportCard transcript={transcript} user={user} content={draft} />
       </Drawer>
+      <Drawer
+        destroyOnClose
+        // title="Seard & Replace"
+        placement="bottom"
+        onClose={() => setSearchDrawerVisible(false)}
+        open={searchDrawerVisible}
+        closable={false}
+        height="auto">
+        <FindReplace />
+      </Drawer>
       <DataCard objects={{ transcript }} />
     </Layout>
+  );
+};
+
+const FindReplace = (): JSX.Element => {
+  const [find, setFind] = useState('');
+  const [replace, setReplace] = useState('');
+
+  return (
+    <Form
+      layout="inline"
+      // onSubmit={console.log}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+      <Form.Item>
+        <Input
+          value={find}
+          prefix={<SearchOutlined />}
+          placeholder="Find"
+          onChange={({ target: { value } }) => setFind(value)}
+        />
+      </Form.Item>
+      <Form.Item>
+        <Input
+          value={replace}
+          prefix={<RetweetOutlined />}
+          placeholder="Replace"
+          onChange={({ target: { value } }) => setReplace(value)}
+        />
+      </Form.Item>
+      <Form.Item>
+        <Space>
+          <Button type="primary" htmlType="submit">
+            Find
+          </Button>
+          <Button type="primary" disabled={false} onClick={console.log}>
+            Replace
+          </Button>
+        </Space>
+      </Form.Item>
+    </Form>
   );
 };
 

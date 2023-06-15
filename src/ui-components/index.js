@@ -5,6 +5,8 @@
  **************************************************************************/
 
 export { default as studioTheme } from "./studioTheme";
+export { default as ProjectGroupCreateForm } from "./ProjectGroupCreateForm";
+export { default as ProjectGroupUpdateForm } from "./ProjectGroupUpdateForm";
 export { default as ProjectCreateForm } from "./ProjectCreateForm";
 export { default as ProjectUpdateForm } from "./ProjectUpdateForm";
 export { default as FolderCreateForm } from "./FolderCreateForm";

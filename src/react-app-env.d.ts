@@ -4,6 +4,7 @@
 interface Window {
   Amplify: Amplify;
   // MediaInfo: MediaInfo;
+  Indexes: Record<string, any> | undefined;
 }
 
 // add slot to svg element

@@ -74,6 +74,7 @@ interface EditorProps {
   readOnly?: boolean;
   frameRate?: number;
   offset: string;
+  highlight?: string;
 }
 
 const Editor = ({
@@ -94,6 +95,7 @@ const Editor = ({
   readOnly,
   frameRate,
   offset,
+  highlight, // = 'mathematics',
   ...rest
 }: EditorProps): JSX.Element => {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -128,22 +130,40 @@ const Editor = ({
   const onFocus = useCallback(() => setFocused(true), []);
   const onBlur = useCallback(() => setFocused(false), []);
 
-  const editorState = useMemo(
-    () =>
-      !focused && playheadDecorator
-        ? EditorState.set(state, {
-            decorator: new CompositeDecorator([
-              {
-                strategy: (contentBlock, callback, contentState) =>
-                  playheadDecorator.strategy(contentBlock, callback, contentState, time),
-                component: playheadDecorator.component,
-              },
-              ...decorators,
-            ]),
-          })
-        : state,
-    [state, time, playheadDecorator, decorators, focused],
-  );
+  const editorState = useMemo(() => {
+    if (!focused && playheadDecorator) {
+      return EditorState.set(state, {
+        decorator: new CompositeDecorator([
+          {
+            strategy: (contentBlock, callback, contentState) =>
+              playheadDecorator.strategy(contentBlock, callback, contentState, time),
+            component: playheadDecorator.component,
+          },
+          ...decorators,
+        ]),
+      });
+    }
+
+    if (highlight && highlight !== '') {
+      const regex = new RegExp(highlight, 'gi');
+
+      return EditorState.set(state, {
+        decorator: new CompositeDecorator([
+          {
+            strategy: (contentBlock, callback) => {
+              if (highlight !== '') {
+                findWithRegex(regex, contentBlock, callback);
+              }
+            },
+            component: SearchHighlight,
+          },
+          ...decorators,
+        ]),
+      });
+    }
+
+    return state;
+  }, [state, time, playheadDecorator, decorators, focused, highlight]);
 
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
@@ -416,7 +436,7 @@ const BlockStyle = ({
   speakers,
   time,
   activeInterval,
-  frameRate,
+  frameRate = 1000,
   offset,
 }: {
   block: ContentBlock;
@@ -433,7 +453,7 @@ const BlockStyle = ({
   const end = useMemo(() => block.getData().get('end'), [block]);
   const tc = useMemo(
     () => timecode({ seconds: start, partialTimecode: !showFullTimecode, frameRate, offset }),
-    [start, showFullTimecode, frameRate],
+    [start, showFullTimecode, frameRate, offset],
   );
   // const intersects = useMemo(() => intersection([start, end], activeInterval), [start, end, activeInterval]);
 
@@ -588,6 +608,11 @@ const EditorStyleElement = (): JSX.Element => {
     color: #177ddc;
     transition: 0.2s;
   }
+
+  .find-and-replace-highlight {
+    background-color: #fbf8a3;
+    outline: 1px solid #ffff00;
+  }
   `,
     [darkMode, measure],
   );
@@ -601,15 +626,22 @@ const timecode = ({
   partialTimecode = false,
   offset = 0,
 }: {
-  seconds: number;
-  frameRate?: FRAMERATE | number;
+  seconds: number | undefined;
+  frameRate: FRAMERATE | number;
   dropFrame?: boolean;
   partialTimecode: boolean;
   offset: number | string;
 }): string => {
-  const tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
-    .add(new TC(offset, frameRate as FRAMERATE))
-    .toString();
+  let tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+
+  try {
+    tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
+      .add(new TC(offset, frameRate as FRAMERATE))
+      .toString();
+  } catch (error) {
+    console.log('offset', error);
+  }
+
   // hh:mm:ss
   if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
 
@@ -648,6 +680,27 @@ const wordAligner = (
   // eslint-disable-next-line no-unused-expressions
   callback && callback(items);
   return items;
+};
+
+const SearchHighlight = ({ children }: { children: React.ReactElement[] }): JSX.Element => (
+  <span className="find-and-replace-highlight">{children}</span>
+);
+
+const findWithRegex = (
+  regex: RegExp,
+  contentBlock: ContentBlock,
+  callback: (offset: number, length: number) => void,
+): void => {
+  const text = contentBlock.getText();
+  let matchArr;
+  let start;
+  let end;
+  // eslint-disable-next-line no-cond-assign
+  while ((matchArr = regex.exec(text)) !== null) {
+    start = matchArr.index;
+    end = start + matchArr[0].length;
+    callback(start, end);
+  }
 };
 
 export default Editor;

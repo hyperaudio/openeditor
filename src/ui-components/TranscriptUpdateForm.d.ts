@@ -20,7 +20,6 @@ export declare type TranscriptUpdateFormInputValues = {
     media?: string;
     status?: string;
     metadata?: string;
-    project?: string;
 };
 export declare type TranscriptUpdateFormValidationValues = {
     parent?: ValidationFunction<string>;
@@ -29,7 +28,6 @@ export declare type TranscriptUpdateFormValidationValues = {
     media?: ValidationFunction<string>;
     status?: ValidationFunction<string>;
     metadata?: ValidationFunction<string>;
-    project?: ValidationFunction<string>;
 };
 export declare type PrimitiveOverrideProps<T> = Partial<T> & React.DOMAttributes<HTMLDivElement>;
 export declare type TranscriptUpdateFormOverridesProps = {
@@ -40,7 +38,6 @@ export declare type TranscriptUpdateFormOverridesProps = {
     media?: PrimitiveOverrideProps<TextAreaFieldProps>;
     status?: PrimitiveOverrideProps<TextAreaFieldProps>;
     metadata?: PrimitiveOverrideProps<TextAreaFieldProps>;
-    project?: PrimitiveOverrideProps<TextFieldProps>;
 } & EscapeHatchProps;
 export declare type TranscriptUpdateFormProps = React.PropsWithChildren<{
     overrides?: TranscriptUpdateFormOverridesProps | undefined | null;

@@ -7,45 +7,41 @@
 import * as React from "react";
 import { GridProps, TextAreaFieldProps, TextFieldProps } from "@aws-amplify/ui-react";
 import { EscapeHatchProps } from "@aws-amplify/ui-react/internal";
+import { ProjectGroup } from "../models";
 export declare type ValidationResponse = {
     hasError: boolean;
     errorMessage?: string;
 };
 export declare type ValidationFunction<T> = (value: T, validationResponse: ValidationResponse) => ValidationResponse | Promise<ValidationResponse>;
-export declare type TranscriptCreateFormInputValues = {
-    parent?: string;
+export declare type ProjectGroupUpdateFormInputValues = {
     title?: string;
-    language?: string;
-    media?: string;
+    users?: string[];
     status?: string;
     metadata?: string;
 };
-export declare type TranscriptCreateFormValidationValues = {
-    parent?: ValidationFunction<string>;
+export declare type ProjectGroupUpdateFormValidationValues = {
     title?: ValidationFunction<string>;
-    language?: ValidationFunction<string>;
-    media?: ValidationFunction<string>;
+    users?: ValidationFunction<string>;
     status?: ValidationFunction<string>;
     metadata?: ValidationFunction<string>;
 };
 export declare type PrimitiveOverrideProps<T> = Partial<T> & React.DOMAttributes<HTMLDivElement>;
-export declare type TranscriptCreateFormOverridesProps = {
-    TranscriptCreateFormGrid?: PrimitiveOverrideProps<GridProps>;
-    parent?: PrimitiveOverrideProps<TextFieldProps>;
+export declare type ProjectGroupUpdateFormOverridesProps = {
+    ProjectGroupUpdateFormGrid?: PrimitiveOverrideProps<GridProps>;
     title?: PrimitiveOverrideProps<TextFieldProps>;
-    language?: PrimitiveOverrideProps<TextFieldProps>;
-    media?: PrimitiveOverrideProps<TextAreaFieldProps>;
+    users?: PrimitiveOverrideProps<TextFieldProps>;
     status?: PrimitiveOverrideProps<TextAreaFieldProps>;
     metadata?: PrimitiveOverrideProps<TextAreaFieldProps>;
 } & EscapeHatchProps;
-export declare type TranscriptCreateFormProps = React.PropsWithChildren<{
-    overrides?: TranscriptCreateFormOverridesProps | undefined | null;
+export declare type ProjectGroupUpdateFormProps = React.PropsWithChildren<{
+    overrides?: ProjectGroupUpdateFormOverridesProps | undefined | null;
 } & {
-    clearOnSuccess?: boolean;
-    onSubmit?: (fields: TranscriptCreateFormInputValues) => TranscriptCreateFormInputValues;
-    onSuccess?: (fields: TranscriptCreateFormInputValues) => void;
-    onError?: (fields: TranscriptCreateFormInputValues, errorMessage: string) => void;
-    onChange?: (fields: TranscriptCreateFormInputValues) => TranscriptCreateFormInputValues;
-    onValidate?: TranscriptCreateFormValidationValues;
+    id?: string;
+    projectGroup?: ProjectGroup;
+    onSubmit?: (fields: ProjectGroupUpdateFormInputValues) => ProjectGroupUpdateFormInputValues;
+    onSuccess?: (fields: ProjectGroupUpdateFormInputValues) => void;
+    onError?: (fields: ProjectGroupUpdateFormInputValues, errorMessage: string) => void;
+    onChange?: (fields: ProjectGroupUpdateFormInputValues) => ProjectGroupUpdateFormInputValues;
+    onValidate?: ProjectGroupUpdateFormValidationValues;
 } & React.CSSProperties>;
-export default function TranscriptCreateForm(props: TranscriptCreateFormProps): React.ReactElement;
+export default function ProjectGroupUpdateForm(props: ProjectGroupUpdateFormProps): React.ReactElement;

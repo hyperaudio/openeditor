@@ -12,40 +12,34 @@ export declare type ValidationResponse = {
     errorMessage?: string;
 };
 export declare type ValidationFunction<T> = (value: T, validationResponse: ValidationResponse) => ValidationResponse | Promise<ValidationResponse>;
-export declare type TranscriptCreateFormInputValues = {
-    parent?: string;
+export declare type ProjectGroupCreateFormInputValues = {
     title?: string;
-    language?: string;
-    media?: string;
+    users?: string[];
     status?: string;
     metadata?: string;
 };
-export declare type TranscriptCreateFormValidationValues = {
-    parent?: ValidationFunction<string>;
+export declare type ProjectGroupCreateFormValidationValues = {
     title?: ValidationFunction<string>;
-    language?: ValidationFunction<string>;
-    media?: ValidationFunction<string>;
+    users?: ValidationFunction<string>;
     status?: ValidationFunction<string>;
     metadata?: ValidationFunction<string>;
 };
 export declare type PrimitiveOverrideProps<T> = Partial<T> & React.DOMAttributes<HTMLDivElement>;
-export declare type TranscriptCreateFormOverridesProps = {
-    TranscriptCreateFormGrid?: PrimitiveOverrideProps<GridProps>;
-    parent?: PrimitiveOverrideProps<TextFieldProps>;
+export declare type ProjectGroupCreateFormOverridesProps = {
+    ProjectGroupCreateFormGrid?: PrimitiveOverrideProps<GridProps>;
     title?: PrimitiveOverrideProps<TextFieldProps>;
-    language?: PrimitiveOverrideProps<TextFieldProps>;
-    media?: PrimitiveOverrideProps<TextAreaFieldProps>;
+    users?: PrimitiveOverrideProps<TextFieldProps>;
     status?: PrimitiveOverrideProps<TextAreaFieldProps>;
     metadata?: PrimitiveOverrideProps<TextAreaFieldProps>;
 } & EscapeHatchProps;
-export declare type TranscriptCreateFormProps = React.PropsWithChildren<{
-    overrides?: TranscriptCreateFormOverridesProps | undefined | null;
+export declare type ProjectGroupCreateFormProps = React.PropsWithChildren<{
+    overrides?: ProjectGroupCreateFormOverridesProps | undefined | null;
 } & {
     clearOnSuccess?: boolean;
-    onSubmit?: (fields: TranscriptCreateFormInputValues) => TranscriptCreateFormInputValues;
-    onSuccess?: (fields: TranscriptCreateFormInputValues) => void;
-    onError?: (fields: TranscriptCreateFormInputValues, errorMessage: string) => void;
-    onChange?: (fields: TranscriptCreateFormInputValues) => TranscriptCreateFormInputValues;
-    onValidate?: TranscriptCreateFormValidationValues;
+    onSubmit?: (fields: ProjectGroupCreateFormInputValues) => ProjectGroupCreateFormInputValues;
+    onSuccess?: (fields: ProjectGroupCreateFormInputValues) => void;
+    onError?: (fields: ProjectGroupCreateFormInputValues, errorMessage: string) => void;
+    onChange?: (fields: ProjectGroupCreateFormInputValues) => ProjectGroupCreateFormInputValues;
+    onValidate?: ProjectGroupCreateFormValidationValues;
 } & React.CSSProperties>;
-export default function TranscriptCreateForm(props: TranscriptCreateFormProps): React.ReactElement;
+export default function ProjectGroupCreateForm(props: ProjectGroupCreateFormProps): React.ReactElement;

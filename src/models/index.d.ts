@@ -2,6 +2,10 @@ import { ModelInit, MutableModel } from "@aws-amplify/datastore";
 // @ts-ignore
 import { LazyLoading, LazyLoadingDisabled } from "@aws-amplify/datastore";
 
+type ProjectGroupMetaData = {
+  readOnlyFields: 'createdAt' | 'updatedAt';
+}
+
 type ProjectMetaData = {
   readOnlyFields: 'createdAt' | 'updatedAt';
 }
@@ -16,6 +20,32 @@ type TranscriptMetaData = {
 
 type UserMetaData = {
   readOnlyFields: 'createdAt' | 'updatedAt';
+}
+
+type EagerProjectGroup = {
+  readonly id: string;
+  readonly title: string;
+  readonly users?: (string | null)[] | null;
+  readonly status: string;
+  readonly metadata: string;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+type LazyProjectGroup = {
+  readonly id: string;
+  readonly title: string;
+  readonly users?: (string | null)[] | null;
+  readonly status: string;
+  readonly metadata: string;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+export declare type ProjectGroup = LazyLoading extends LazyLoadingDisabled ? EagerProjectGroup : LazyProjectGroup
+
+export declare const ProjectGroup: (new (init: ModelInit<ProjectGroup, ProjectGroupMetaData>) => ProjectGroup) & {
+  copyOf(source: ProjectGroup, mutator: (draft: MutableModel<ProjectGroup, ProjectGroupMetaData>) => MutableModel<ProjectGroup, ProjectGroupMetaData> | void): ProjectGroup;
 }
 
 type EagerProject = {
@@ -82,7 +112,6 @@ type EagerTranscript = {
   readonly media: string;
   readonly status: string;
   readonly metadata: string;
-  readonly project?: string | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
@@ -95,7 +124,6 @@ type LazyTranscript = {
   readonly media: string;
   readonly status: string;
   readonly metadata: string;
-  readonly project?: string | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
