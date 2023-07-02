@@ -14,13 +14,12 @@ import {
   TextField,
 } from "@aws-amplify/ui-react";
 import { getOverrideProps } from "@aws-amplify/ui-react/internal";
-import { User } from "../models";
+import { Folder } from "../models";
 import { fetchByPath, validateField } from "./utils";
 import { DataStore } from "aws-amplify";
-export default function UserUpdateForm(props) {
+export default function FolderCreateForm(props) {
   const {
-    id: idProp,
-    user,
+    clearOnSuccess = true,
     onSuccess,
     onError,
     onSubmit,
@@ -30,50 +29,32 @@ export default function UserUpdateForm(props) {
     ...rest
   } = props;
   const initialValues = {
-    identityId: "",
-    cognitoUsername: "",
-    email: "",
-    name: "",
+    parent: "",
+    title: "",
+    status: "",
     metadata: "",
+    project: "",
   };
-  const [identityId, setIdentityId] = React.useState(initialValues.identityId);
-  const [cognitoUsername, setCognitoUsername] = React.useState(
-    initialValues.cognitoUsername
-  );
-  const [email, setEmail] = React.useState(initialValues.email);
-  const [name, setName] = React.useState(initialValues.name);
+  const [parent, setParent] = React.useState(initialValues.parent);
+  const [title, setTitle] = React.useState(initialValues.title);
+  const [status, setStatus] = React.useState(initialValues.status);
   const [metadata, setMetadata] = React.useState(initialValues.metadata);
+  const [project, setProject] = React.useState(initialValues.project);
   const [errors, setErrors] = React.useState({});
   const resetStateValues = () => {
-    const cleanValues = userRecord
-      ? { ...initialValues, ...userRecord }
-      : initialValues;
-    setIdentityId(cleanValues.identityId);
-    setCognitoUsername(cleanValues.cognitoUsername);
-    setEmail(cleanValues.email);
-    setName(cleanValues.name);
-    setMetadata(
-      typeof cleanValues.metadata === "string"
-        ? cleanValues.metadata
-        : JSON.stringify(cleanValues.metadata)
-    );
+    setParent(initialValues.parent);
+    setTitle(initialValues.title);
+    setStatus(initialValues.status);
+    setMetadata(initialValues.metadata);
+    setProject(initialValues.project);
     setErrors({});
   };
-  const [userRecord, setUserRecord] = React.useState(user);
-  React.useEffect(() => {
-    const queryData = async () => {
-      const record = idProp ? await DataStore.query(User, idProp) : user;
-      setUserRecord(record);
-    };
-    queryData();
-  }, [idProp, user]);
-  React.useEffect(resetStateValues, [userRecord]);
   const validations = {
-    identityId: [{ type: "Required" }],
-    cognitoUsername: [{ type: "Required" }],
-    email: [{ type: "Required" }],
-    name: [{ type: "Required" }],
+    parent: [],
+    title: [{ type: "Required" }],
+    status: [{ type: "Required" }, { type: "JSON" }],
     metadata: [{ type: "Required" }, { type: "JSON" }],
+    project: [],
   };
   const runValidationTasks = async (
     fieldName,
@@ -101,11 +82,11 @@ export default function UserUpdateForm(props) {
       onSubmit={async (event) => {
         event.preventDefault();
         let modelFields = {
-          identityId,
-          cognitoUsername,
-          email,
-          name,
+          parent,
+          title,
+          status,
           metadata,
+          project,
         };
         const validationResponses = await Promise.all(
           Object.keys(validations).reduce((promises, fieldName) => {
@@ -135,13 +116,12 @@ export default function UserUpdateForm(props) {
               modelFields[key] = undefined;
             }
           });
-          await DataStore.save(
-            User.copyOf(userRecord, (updated) => {
-              Object.assign(updated, modelFields);
-            })
-          );
+          await DataStore.save(new Folder(modelFields));
           if (onSuccess) {
             onSuccess(modelFields);
+          }
+          if (clearOnSuccess) {
+            resetStateValues();
           }
         } catch (err) {
           if (onError) {
@@ -149,135 +129,105 @@ export default function UserUpdateForm(props) {
           }
         }
       }}
-      {...getOverrideProps(overrides, "UserUpdateForm")}
+      {...getOverrideProps(overrides, "FolderCreateForm")}
       {...rest}
     >
       <TextField
-        label="Identity id"
-        isRequired={true}
+        label="Parent"
+        isRequired={false}
         isReadOnly={false}
-        value={identityId}
+        value={parent}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
             const modelFields = {
-              identityId: value,
-              cognitoUsername,
-              email,
-              name,
+              parent: value,
+              title,
+              status,
               metadata,
+              project,
             };
             const result = onChange(modelFields);
-            value = result?.identityId ?? value;
+            value = result?.parent ?? value;
           }
-          if (errors.identityId?.hasError) {
-            runValidationTasks("identityId", value);
+          if (errors.parent?.hasError) {
+            runValidationTasks("parent", value);
           }
-          setIdentityId(value);
+          setParent(value);
         }}
-        onBlur={() => runValidationTasks("identityId", identityId)}
-        errorMessage={errors.identityId?.errorMessage}
-        hasError={errors.identityId?.hasError}
-        {...getOverrideProps(overrides, "identityId")}
+        onBlur={() => runValidationTasks("parent", parent)}
+        errorMessage={errors.parent?.errorMessage}
+        hasError={errors.parent?.hasError}
+        {...getOverrideProps(overrides, "parent")}
       ></TextField>
       <TextField
-        label="Cognito username"
+        label="Title"
         isRequired={true}
         isReadOnly={false}
-        value={cognitoUsername}
+        value={title}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
             const modelFields = {
-              identityId,
-              cognitoUsername: value,
-              email,
-              name,
+              parent,
+              title: value,
+              status,
               metadata,
+              project,
             };
             const result = onChange(modelFields);
-            value = result?.cognitoUsername ?? value;
+            value = result?.title ?? value;
           }
-          if (errors.cognitoUsername?.hasError) {
-            runValidationTasks("cognitoUsername", value);
+          if (errors.title?.hasError) {
+            runValidationTasks("title", value);
           }
-          setCognitoUsername(value);
+          setTitle(value);
         }}
-        onBlur={() => runValidationTasks("cognitoUsername", cognitoUsername)}
-        errorMessage={errors.cognitoUsername?.errorMessage}
-        hasError={errors.cognitoUsername?.hasError}
-        {...getOverrideProps(overrides, "cognitoUsername")}
+        onBlur={() => runValidationTasks("title", title)}
+        errorMessage={errors.title?.errorMessage}
+        hasError={errors.title?.hasError}
+        {...getOverrideProps(overrides, "title")}
       ></TextField>
-      <TextField
-        label="Email"
+      <TextAreaField
+        label="Status"
         isRequired={true}
         isReadOnly={false}
-        value={email}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
             const modelFields = {
-              identityId,
-              cognitoUsername,
-              email: value,
-              name,
+              parent,
+              title,
+              status: value,
               metadata,
+              project,
             };
             const result = onChange(modelFields);
-            value = result?.email ?? value;
+            value = result?.status ?? value;
           }
-          if (errors.email?.hasError) {
-            runValidationTasks("email", value);
+          if (errors.status?.hasError) {
+            runValidationTasks("status", value);
           }
-          setEmail(value);
+          setStatus(value);
         }}
-        onBlur={() => runValidationTasks("email", email)}
-        errorMessage={errors.email?.errorMessage}
-        hasError={errors.email?.hasError}
-        {...getOverrideProps(overrides, "email")}
-      ></TextField>
-      <TextField
-        label="Name"
-        isRequired={true}
-        isReadOnly={false}
-        value={name}
-        onChange={(e) => {
-          let { value } = e.target;
-          if (onChange) {
-            const modelFields = {
-              identityId,
-              cognitoUsername,
-              email,
-              name: value,
-              metadata,
-            };
-            const result = onChange(modelFields);
-            value = result?.name ?? value;
-          }
-          if (errors.name?.hasError) {
-            runValidationTasks("name", value);
-          }
-          setName(value);
-        }}
-        onBlur={() => runValidationTasks("name", name)}
-        errorMessage={errors.name?.errorMessage}
-        hasError={errors.name?.hasError}
-        {...getOverrideProps(overrides, "name")}
-      ></TextField>
+        onBlur={() => runValidationTasks("status", status)}
+        errorMessage={errors.status?.errorMessage}
+        hasError={errors.status?.hasError}
+        {...getOverrideProps(overrides, "status")}
+      ></TextAreaField>
       <TextAreaField
         label="Metadata"
         isRequired={true}
         isReadOnly={false}
-        value={metadata}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
             const modelFields = {
-              identityId,
-              cognitoUsername,
-              email,
-              name,
+              parent,
+              title,
+              status,
               metadata: value,
+              project,
             };
             const result = onChange(modelFields);
             value = result?.metadata ?? value;
@@ -292,19 +242,46 @@ export default function UserUpdateForm(props) {
         hasError={errors.metadata?.hasError}
         {...getOverrideProps(overrides, "metadata")}
       ></TextAreaField>
+      <TextField
+        label="Project"
+        isRequired={false}
+        isReadOnly={false}
+        value={project}
+        onChange={(e) => {
+          let { value } = e.target;
+          if (onChange) {
+            const modelFields = {
+              parent,
+              title,
+              status,
+              metadata,
+              project: value,
+            };
+            const result = onChange(modelFields);
+            value = result?.project ?? value;
+          }
+          if (errors.project?.hasError) {
+            runValidationTasks("project", value);
+          }
+          setProject(value);
+        }}
+        onBlur={() => runValidationTasks("project", project)}
+        errorMessage={errors.project?.errorMessage}
+        hasError={errors.project?.hasError}
+        {...getOverrideProps(overrides, "project")}
+      ></TextField>
       <Flex
         justifyContent="space-between"
         {...getOverrideProps(overrides, "CTAFlex")}
       >
         <Button
-          children="Reset"
+          children="Clear"
           type="reset"
           onClick={(event) => {
             event.preventDefault();
             resetStateValues();
           }}
-          isDisabled={!(idProp || user)}
-          {...getOverrideProps(overrides, "ResetButton")}
+          {...getOverrideProps(overrides, "ClearButton")}
         ></Button>
         <Flex
           gap="15px"
@@ -314,10 +291,7 @@ export default function UserUpdateForm(props) {
             children="Submit"
             type="submit"
             variation="primary"
-            isDisabled={
-              !(idProp || user) ||
-              Object.values(errors).some((e) => e?.hasError)
-            }
+            isDisabled={Object.values(errors).some((e) => e?.hasError)}
             {...getOverrideProps(overrides, "SubmitButton")}
           ></Button>
         </Flex>

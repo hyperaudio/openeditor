@@ -23,6 +23,7 @@ import { default as fetch, Request } from 'node-fetch';
 import { nanoid } from 'nanoid';
 import pako from 'pako';
 import ffprobe from 'ffprobe';
+import * as cldrSegmentation from 'cldr-segmentation';
 
 const { Sha256 } = crypto;
 
@@ -184,9 +185,28 @@ export const handler = async function (event) {
     status.step = transcodeIndex;
     status.steps[transcodeIndex].status = 'wait';
     try {
+      let describeEndpointsCommandOutput;
+      try {
+        const { Body: stream } = await s3.getObject({
+          Bucket: bucket,
+          Key: `cache/describeEndpointsCommandOutput.json`,
+        });
+        describeEndpointsCommandOutput = JSON.parse(await consumers.text(stream));
+      } catch (ignored) {}
+
       let mediaConvertClient = new MediaConvertClient({ region: REGION });
-      const describeEndpointsCommand = new DescribeEndpointsCommand({ Mode: 'DEFAULT' });
-      const describeEndpointsCommandOutput = await mediaConvertClient.send(describeEndpointsCommand);
+      try {
+        const describeEndpointsCommand = new DescribeEndpointsCommand({ Mode: 'DEFAULT' });
+        describeEndpointsCommandOutput = await mediaConvertClient.send(describeEndpointsCommand);
+
+        await s3.putObject({
+          Bucket: bucket,
+          Key: `cache/describeEndpointsCommandOutput.json`,
+          Body: Buffer.from(JSON.stringify(describeEndpointsCommandOutput)),
+          ContentType: 'application/json',
+        });
+      } catch (ignored) {} // using cached endpoint
+
       mediaConvertClient = new MediaConvertClient({
         endpoint: describeEndpointsCommandOutput.Endpoints[0].Url,
         region: REGION,
@@ -476,6 +496,7 @@ export const handler = async function (event) {
 
     const status = JSON.parse(transcript.status);
     const media = JSON.parse(transcript.media);
+    const metadata = JSON.parse(transcript.metadata);
 
     // TRANSCODE status
     const transcodeIndex = status.steps.findIndex(step => step.type === 'transcode');
@@ -485,6 +506,24 @@ export const handler = async function (event) {
 
     // Media
     media.audio = { ...media.audio, key };
+
+    // IF IMPORTED!
+    if (metadata.PK) {
+      // UPDATE status
+      const mutation = await graphqlRequest({
+        query: transcriptMutation,
+        variables: {
+          input: {
+            id: uuid,
+            status: JSON.stringify(status),
+            media: JSON.stringify(media),
+            _version: transcript._version,
+          },
+        },
+      });
+
+      return;
+    }
 
     // TRANSCRIBE
     const transcribeIndex = status.steps.findIndex(step => step.type === 'transcribe');
@@ -681,16 +720,126 @@ const convertTranscript = ({
     };
   });
 
+  // "fold" speakers
+  const limit = 7;
+  const suppressions = cldrSegmentation.suppressions.all;
+
+  const contiguousBlocks = blocks.reduce((acc, block, i) => {
+    if (i === 0) return [block];
+    const prev = acc.pop();
+
+    if (prev.data.speaker === block.data.speaker) {
+      const stt = [
+        ...prev.data.stt,
+        ...block.data.stt.map(item => ({ ...item, offset: item.offset + prev.text.length + 1 })),
+      ].reduce((acc, item, i, arr) => {
+        if (i === 0) {
+          item.sid = nanoid(3); // sentence id
+          item.sno = 1; // sentence number
+          item.smod = item.sno % limit; // number % limit
+          item.sg = nanoid(3); // sentence group
+          return [item];
+        }
+
+        const prev = acc.pop();
+
+        if (cldrSegmentation.sentenceSplit(`${prev.text} ${item.text}`, suppressions).length > 1) {
+          prev.eol = true;
+          item.sid = nanoid(3); // sentence id
+          item.sno = prev.sno + 1; // sentence number
+          item.smod = item.sno % limit; // number % limit
+          item.sg = item.smod === 0 ? nanoid(3) : prev.sg; // sentence group
+        } else {
+          item.sid = prev.sid;
+          item.sno = prev.sno;
+          item.sg = prev.sg;
+        }
+
+        if (i === arr.length - 1) item.eol = true;
+
+        item.smod = item.sno % limit;
+
+        return [...acc, prev, item];
+      }, []);
+
+      const megablock = {
+        key: prev.key,
+        text: [prev.text, block.text].join(' '),
+        data: {
+          speaker: prev.data.speaker,
+          start: stt[0].start,
+          end: stt[stt.length - 1].end,
+          items: stt,
+          stt,
+        },
+        entityRanges: [],
+        inlineStyleRanges: [],
+      };
+
+      return [...acc, megablock];
+    }
+
+    return [...acc, prev, block];
+  }, []);
+
+  // split every 7 "sentences"
+  const sentenceSplitBlocks = contiguousBlocks
+    .reduce((acc, block, i, arr) => {
+      const count = block.data.stt.filter(({ eol }) => eol)?.length ?? 0;
+      // console.log(count);
+      if (count > 7) {
+        const blocks = block.data.stt.reduce((acc, item, i, arr) => {
+          let b;
+          let p = true;
+          if (i === 0 || item.sg !== arr[i - 1].sg) {
+            p = false;
+            b = {
+              key: `b${nanoid(5)}`,
+              data: {
+                speaker: block.data.speaker,
+                stt: [],
+                items: [],
+              },
+              entityRanges: [],
+              inlineStyleRanges: [],
+            };
+          }
+
+          if (!b) b = acc.pop();
+
+          b.data.stt.push(item);
+          b.data.items.push(block.data.items[i]);
+
+          return [...acc, b];
+        }, []);
+
+        return [...acc, ...blocks];
+      }
+
+      return [...acc, block];
+    }, [])
+    .map(block => ({
+      ...block,
+      text: block.data.items.map(({ text }) => text).join(' '),
+      data: {
+        ...block.data,
+        start: block.data.items[0].start,
+        end: block.data.items[block.data.items.length - 1].end,
+        items: block.data.items.map((item, i, arr) => ({
+          ...item,
+          offset: arr.slice(0, i).reduce((acc, { text }) => acc + text.length + 1, 0),
+        })),
+        stt: block.data.stt.map((item, i, arr) => ({
+          ...item,
+          offset: arr.slice(0, i).reduce((acc, { text }) => acc + text.length + 1, 0),
+        })),
+      },
+    }));
+
   const t = {
     speakers,
-    blocks: blocks,
+    blocks: sentenceSplitBlocks,
   };
 
   return t;
 };
-
-// const nanoid = size => {
-//   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-//   const id = [...Array(size)].map(() => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
-//   return id;
-// };

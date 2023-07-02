@@ -7,19 +7,184 @@
 /* eslint-disable */
 import * as React from "react";
 import {
+  Badge,
   Button,
+  Divider,
   Flex,
   Grid,
+  Icon,
+  ScrollView,
+  Text,
   TextAreaField,
   TextField,
+  useTheme,
 } from "@aws-amplify/ui-react";
 import { getOverrideProps } from "@aws-amplify/ui-react/internal";
-import { Transcript } from "../models";
+import { Project } from "../models";
 import { fetchByPath, validateField } from "./utils";
 import { DataStore } from "aws-amplify";
-export default function TranscriptCreateForm(props) {
+function ArrayField({
+  items = [],
+  onChange,
+  label,
+  inputFieldRef,
+  children,
+  hasError,
+  setFieldValue,
+  currentFieldValue,
+  defaultFieldValue,
+  lengthLimit,
+  getBadgeText,
+  errorMessage,
+}) {
+  const labelElement = <Text>{label}</Text>;
   const {
-    clearOnSuccess = true,
+    tokens: {
+      components: {
+        fieldmessages: { error: errorStyles },
+      },
+    },
+  } = useTheme();
+  const [selectedBadgeIndex, setSelectedBadgeIndex] = React.useState();
+  const [isEditing, setIsEditing] = React.useState();
+  React.useEffect(() => {
+    if (isEditing) {
+      inputFieldRef?.current?.focus();
+    }
+  }, [isEditing]);
+  const removeItem = async (removeIndex) => {
+    const newItems = items.filter((value, index) => index !== removeIndex);
+    await onChange(newItems);
+    setSelectedBadgeIndex(undefined);
+  };
+  const addItem = async () => {
+    if (
+      currentFieldValue !== undefined &&
+      currentFieldValue !== null &&
+      currentFieldValue !== "" &&
+      !hasError
+    ) {
+      const newItems = [...items];
+      if (selectedBadgeIndex !== undefined) {
+        newItems[selectedBadgeIndex] = currentFieldValue;
+        setSelectedBadgeIndex(undefined);
+      } else {
+        newItems.push(currentFieldValue);
+      }
+      await onChange(newItems);
+      setIsEditing(false);
+    }
+  };
+  const arraySection = (
+    <React.Fragment>
+      {!!items?.length && (
+        <ScrollView height="inherit" width="inherit" maxHeight={"7rem"}>
+          {items.map((value, index) => {
+            return (
+              <Badge
+                key={index}
+                style={{
+                  cursor: "pointer",
+                  alignItems: "center",
+                  marginRight: 3,
+                  marginTop: 3,
+                  backgroundColor:
+                    index === selectedBadgeIndex ? "#B8CEF9" : "",
+                }}
+                onClick={() => {
+                  setSelectedBadgeIndex(index);
+                  setFieldValue(items[index]);
+                  setIsEditing(true);
+                }}
+              >
+                {getBadgeText ? getBadgeText(value) : value.toString()}
+                <Icon
+                  style={{
+                    cursor: "pointer",
+                    paddingLeft: 3,
+                    width: 20,
+                    height: 20,
+                  }}
+                  viewBox={{ width: 20, height: 20 }}
+                  paths={[
+                    {
+                      d: "M10 10l5.09-5.09L10 10l5.09 5.09L10 10zm0 0L4.91 4.91 10 10l-5.09 5.09L10 10z",
+                      stroke: "black",
+                    },
+                  ]}
+                  ariaLabel="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    removeItem(index);
+                  }}
+                />
+              </Badge>
+            );
+          })}
+        </ScrollView>
+      )}
+      <Divider orientation="horizontal" marginTop={5} />
+    </React.Fragment>
+  );
+  if (lengthLimit !== undefined && items.length >= lengthLimit && !isEditing) {
+    return (
+      <React.Fragment>
+        {labelElement}
+        {arraySection}
+      </React.Fragment>
+    );
+  }
+  return (
+    <React.Fragment>
+      {labelElement}
+      {isEditing && children}
+      {!isEditing ? (
+        <>
+          <Button
+            onClick={() => {
+              setIsEditing(true);
+            }}
+          >
+            Add item
+          </Button>
+          {errorMessage && hasError && (
+            <Text color={errorStyles.color} fontSize={errorStyles.fontSize}>
+              {errorMessage}
+            </Text>
+          )}
+        </>
+      ) : (
+        <Flex justifyContent="flex-end">
+          {(currentFieldValue || isEditing) && (
+            <Button
+              children="Cancel"
+              type="button"
+              size="small"
+              onClick={() => {
+                setFieldValue(defaultFieldValue);
+                setIsEditing(false);
+                setSelectedBadgeIndex(undefined);
+              }}
+            ></Button>
+          )}
+          <Button
+            size="small"
+            variation="link"
+            isDisabled={hasError}
+            onClick={addItem}
+          >
+            {selectedBadgeIndex !== undefined ? "Save" : "Add"}
+          </Button>
+        </Flex>
+      )}
+      {arraySection}
+    </React.Fragment>
+  );
+}
+export default function ProjectUpdateForm(props) {
+  const {
+    id: idProp,
+    project,
     onSuccess,
     onError,
     onSubmit,
@@ -31,32 +196,51 @@ export default function TranscriptCreateForm(props) {
   const initialValues = {
     parent: "",
     title: "",
-    language: "",
-    media: "",
+    users: [],
     status: "",
     metadata: "",
   };
   const [parent, setParent] = React.useState(initialValues.parent);
   const [title, setTitle] = React.useState(initialValues.title);
-  const [language, setLanguage] = React.useState(initialValues.language);
-  const [media, setMedia] = React.useState(initialValues.media);
+  const [users, setUsers] = React.useState(initialValues.users);
   const [status, setStatus] = React.useState(initialValues.status);
   const [metadata, setMetadata] = React.useState(initialValues.metadata);
   const [errors, setErrors] = React.useState({});
   const resetStateValues = () => {
-    setParent(initialValues.parent);
-    setTitle(initialValues.title);
-    setLanguage(initialValues.language);
-    setMedia(initialValues.media);
-    setStatus(initialValues.status);
-    setMetadata(initialValues.metadata);
+    const cleanValues = projectRecord
+      ? { ...initialValues, ...projectRecord }
+      : initialValues;
+    setParent(cleanValues.parent);
+    setTitle(cleanValues.title);
+    setUsers(cleanValues.users ?? []);
+    setCurrentUsersValue("");
+    setStatus(
+      typeof cleanValues.status === "string"
+        ? cleanValues.status
+        : JSON.stringify(cleanValues.status)
+    );
+    setMetadata(
+      typeof cleanValues.metadata === "string"
+        ? cleanValues.metadata
+        : JSON.stringify(cleanValues.metadata)
+    );
     setErrors({});
   };
+  const [projectRecord, setProjectRecord] = React.useState(project);
+  React.useEffect(() => {
+    const queryData = async () => {
+      const record = idProp ? await DataStore.query(Project, idProp) : project;
+      setProjectRecord(record);
+    };
+    queryData();
+  }, [idProp, project]);
+  React.useEffect(resetStateValues, [projectRecord]);
+  const [currentUsersValue, setCurrentUsersValue] = React.useState("");
+  const usersRef = React.createRef();
   const validations = {
     parent: [],
     title: [{ type: "Required" }],
-    language: [{ type: "Required" }],
-    media: [{ type: "Required" }, { type: "JSON" }],
+    users: [{ type: "Required" }],
     status: [{ type: "Required" }, { type: "JSON" }],
     metadata: [{ type: "Required" }, { type: "JSON" }],
   };
@@ -88,8 +272,7 @@ export default function TranscriptCreateForm(props) {
         let modelFields = {
           parent,
           title,
-          language,
-          media,
+          users,
           status,
           metadata,
         };
@@ -121,12 +304,13 @@ export default function TranscriptCreateForm(props) {
               modelFields[key] = undefined;
             }
           });
-          await DataStore.save(new Transcript(modelFields));
+          await DataStore.save(
+            Project.copyOf(projectRecord, (updated) => {
+              Object.assign(updated, modelFields);
+            })
+          );
           if (onSuccess) {
             onSuccess(modelFields);
-          }
-          if (clearOnSuccess) {
-            resetStateValues();
           }
         } catch (err) {
           if (onError) {
@@ -134,7 +318,7 @@ export default function TranscriptCreateForm(props) {
           }
         }
       }}
-      {...getOverrideProps(overrides, "TranscriptCreateForm")}
+      {...getOverrideProps(overrides, "ProjectUpdateForm")}
       {...rest}
     >
       <TextField
@@ -148,8 +332,7 @@ export default function TranscriptCreateForm(props) {
             const modelFields = {
               parent: value,
               title,
-              language,
-              media,
+              users,
               status,
               metadata,
             };
@@ -177,8 +360,7 @@ export default function TranscriptCreateForm(props) {
             const modelFields = {
               parent,
               title: value,
-              language,
-              media,
+              users,
               status,
               metadata,
             };
@@ -195,75 +377,64 @@ export default function TranscriptCreateForm(props) {
         hasError={errors.title?.hasError}
         {...getOverrideProps(overrides, "title")}
       ></TextField>
-      <TextField
-        label="Language"
-        isRequired={true}
-        isReadOnly={false}
-        value={language}
-        onChange={(e) => {
-          let { value } = e.target;
+      <ArrayField
+        onChange={async (items) => {
+          let values = items;
           if (onChange) {
             const modelFields = {
               parent,
               title,
-              language: value,
-              media,
+              users: values,
               status,
               metadata,
             };
             const result = onChange(modelFields);
-            value = result?.language ?? value;
+            values = result?.users ?? values;
           }
-          if (errors.language?.hasError) {
-            runValidationTasks("language", value);
-          }
-          setLanguage(value);
+          setUsers(values);
+          setCurrentUsersValue("");
         }}
-        onBlur={() => runValidationTasks("language", language)}
-        errorMessage={errors.language?.errorMessage}
-        hasError={errors.language?.hasError}
-        {...getOverrideProps(overrides, "language")}
-      ></TextField>
-      <TextAreaField
-        label="Media"
-        isRequired={true}
-        isReadOnly={false}
-        onChange={(e) => {
-          let { value } = e.target;
-          if (onChange) {
-            const modelFields = {
-              parent,
-              title,
-              language,
-              media: value,
-              status,
-              metadata,
-            };
-            const result = onChange(modelFields);
-            value = result?.media ?? value;
-          }
-          if (errors.media?.hasError) {
-            runValidationTasks("media", value);
-          }
-          setMedia(value);
-        }}
-        onBlur={() => runValidationTasks("media", media)}
-        errorMessage={errors.media?.errorMessage}
-        hasError={errors.media?.hasError}
-        {...getOverrideProps(overrides, "media")}
-      ></TextAreaField>
+        currentFieldValue={currentUsersValue}
+        label={"Users"}
+        items={users}
+        hasError={errors?.users?.hasError}
+        errorMessage={errors?.users?.errorMessage}
+        setFieldValue={setCurrentUsersValue}
+        inputFieldRef={usersRef}
+        defaultFieldValue={""}
+      >
+        <TextField
+          label="Users"
+          isRequired={true}
+          isReadOnly={false}
+          value={currentUsersValue}
+          onChange={(e) => {
+            let { value } = e.target;
+            if (errors.users?.hasError) {
+              runValidationTasks("users", value);
+            }
+            setCurrentUsersValue(value);
+          }}
+          onBlur={() => runValidationTasks("users", currentUsersValue)}
+          errorMessage={errors.users?.errorMessage}
+          hasError={errors.users?.hasError}
+          ref={usersRef}
+          labelHidden={true}
+          {...getOverrideProps(overrides, "users")}
+        ></TextField>
+      </ArrayField>
       <TextAreaField
         label="Status"
         isRequired={true}
         isReadOnly={false}
+        value={status}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
             const modelFields = {
               parent,
               title,
-              language,
-              media,
+              users,
               status: value,
               metadata,
             };
@@ -284,14 +455,14 @@ export default function TranscriptCreateForm(props) {
         label="Metadata"
         isRequired={true}
         isReadOnly={false}
+        value={metadata}
         onChange={(e) => {
           let { value } = e.target;
           if (onChange) {
             const modelFields = {
               parent,
               title,
-              language,
-              media,
+              users,
               status,
               metadata: value,
             };
@@ -313,13 +484,14 @@ export default function TranscriptCreateForm(props) {
         {...getOverrideProps(overrides, "CTAFlex")}
       >
         <Button
-          children="Clear"
+          children="Reset"
           type="reset"
           onClick={(event) => {
             event.preventDefault();
             resetStateValues();
           }}
-          {...getOverrideProps(overrides, "ClearButton")}
+          isDisabled={!(idProp || project)}
+          {...getOverrideProps(overrides, "ResetButton")}
         ></Button>
         <Flex
           gap="15px"
@@ -329,7 +501,10 @@ export default function TranscriptCreateForm(props) {
             children="Submit"
             type="submit"
             variation="primary"
-            isDisabled={Object.values(errors).some((e) => e?.hasError)}
+            isDisabled={
+              !(idProp || project) ||
+              Object.values(errors).some((e) => e?.hasError)
+            }
             {...getOverrideProps(overrides, "SubmitButton")}
           ></Button>
         </Flex>

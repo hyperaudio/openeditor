@@ -1,14 +1,30 @@
-type Transcript
-  @model
-  @auth(
-    rules: [
-      { allow: private, operations: [read] }
-      { allow: private, provider: iam }
-      { allow: groups, groups: ["Admins"], operations: [read, create, update, delete] }
-      { allow: groups, groups: ["Editors"], operations: [read, create, update] }
-      { allow: owner }
-    ]
-  ) {
+type ProjectGroup @model @auth(rules: [{allow: private, operations: [read]}, {allow: owner}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}]) {
+  id: ID!
+  title: String!
+  users: [String]
+  status: AWSJSON!
+  metadata: AWSJSON!
+}
+
+type Project @model @auth(rules: [{allow: private, operations: [read]}, {allow: owner}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read]}, {allow: private, operations: [read], provider: iam}]) {
+  id: ID!
+  parent: String
+  title: String!
+  users: [String!]
+  status: AWSJSON!
+  metadata: AWSJSON!
+}
+
+type Folder @model @auth(rules: [{allow: private, operations: [read]}, {allow: owner}, {allow: private, provider: iam}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read, create, update]}]) {
+  id: ID!
+  parent: String
+  title: String!
+  status: AWSJSON!
+  metadata: AWSJSON!
+  project: String
+}
+
+type Transcript @model @auth(rules: [{allow: private, operations: [read]}, {allow: private, provider: iam}, {allow: groups, groups: ["Admins"], operations: [read, create, update, delete]}, {allow: groups, groups: ["Editors"], operations: [read, create, update]}, {allow: owner}]) {
   id: ID!
   parent: String
   title: String!
@@ -18,15 +34,7 @@ type Transcript
   metadata: AWSJSON!
 }
 
-type User
-  @model
-  @auth(
-    rules: [
-      { allow: private, operations: [read] }
-      { allow: groups, groups: ["Admins"], operations: [read, update, delete] }
-      { allow: owner }
-    ]
-  ) {
+type User @model @auth(rules: [{allow: private, operations: [read]}, {allow: groups, groups: ["Admins"], operations: [read, update, delete]}, {allow: owner}]) {
   id: ID!
   identityId: String!
   cognitoUsername: String!

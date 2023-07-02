@@ -30,9 +30,9 @@ import {
   MediaVolumeRange,
 } from 'media-chrome/dist/react';
 
-import { User, Transcript } from '../models';
-import languages from '../data/aws-transcribe-languages.json';
-import { debugModeAtom } from '../atoms';
+import { User, Transcript } from '../../models';
+import languages from '../../data/aws-transcribe-languages.json';
+import { debugModeAtom } from '../../atoms';
 
 import type { UploadRequestOption, UploadProgressEvent, UploadRequestError } from 'rc-upload/lib/interface';
 import type { UploadFile, UploadChangeParam } from 'antd/lib/upload/interface';
@@ -158,7 +158,7 @@ const StatusCard = ({ user, groups, transcript }: StatusCardProps): JSX.Element 
 
       await DataStore.save(
         Transcript.copyOf(original, (updated: any) => {
-          const originalStatus = JSON.parse(JSON.stringify(original.status));
+          const originalStatus = JSON.parse(JSON.stringify(original.status)); // FIXME
           // eslint-disable-next-line no-param-reassign
           updated.status = JSON.stringify({
             ...originalStatus,
@@ -501,9 +501,9 @@ const Status = ({
   status: 'wait' | 'process' | 'finish' | 'error' | undefined;
 }): JSX.Element => {
   const [debugMode] = useAtom(debugModeAtom);
-  const color = status2color[status ?? 'default'];
-  const icon = status2icon[status ?? 'default'];
   const currentStep = steps[step] as any;
+  const color = status2color[status ?? 'default'];
+  const icon = currentStep?.type === 'edit' ? <CheckCircleOutlined /> : status2icon[status ?? 'default'];
   const label = currentStep
     ? getTitle({ title: currentStep?.title ?? {}, status: status as string, type: currentStep.type })
     : '?';
@@ -520,6 +520,7 @@ const Status = ({
   );
 };
 
+// FIXME ignore Folder?
 export const StatusTag = ({ transcript }: { transcript: Transcript }): JSX.Element => {
   const { step, steps = [] } = (transcript.status as unknown as Record<string, any>) ?? { step: 0, steps: [] };
   const { status } = steps[step];

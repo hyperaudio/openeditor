@@ -49,6 +49,41 @@
       },
       "providerPlugin": "awscloudformation",
       "service": "AppSync"
+    },
+    "search": {
+      "dependsOn": [
+        {
+          "attributes": [
+            "Name",
+            "Arn"
+          ],
+          "category": "function",
+          "resourceName": "search"
+        },
+        {
+          "attributes": [
+            "UserPoolId"
+          ],
+          "category": "auth",
+          "resourceName": "OpenEditor"
+        },
+        {
+          "attributes": [
+            "AdminsGroupRole"
+          ],
+          "category": "auth",
+          "resourceName": "userPoolGroups"
+        },
+        {
+          "attributes": [
+            "EditorsGroupRole"
+          ],
+          "category": "auth",
+          "resourceName": "userPoolGroups"
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "API Gateway"
     }
   },
   "auth": {
@@ -150,6 +185,28 @@
       "build": true,
       "providerPlugin": "awscloudformation",
       "service": "LambdaLayer"
+    },
+    "search": {
+      "build": true,
+      "dependsOn": [
+        {
+          "attributes": [
+            "GraphQLAPIIdOutput",
+            "GraphQLAPIEndpointOutput"
+          ],
+          "category": "api",
+          "resourceName": "OpenEditor"
+        },
+        {
+          "attributes": [
+            "BucketName"
+          ],
+          "category": "storage",
+          "resourceName": "s3storage"
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
     }
   },
   "parameters": {
@@ -198,6 +255,22 @@
         {
           "category": "function",
           "resourceName": "openeditorlayerffprobe"
+        }
+      ]
+    },
+    "AMPLIFY_function_search_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "search"
+        }
+      ]
+    },
+    "AMPLIFY_function_search_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "search"
         }
       ]
     }

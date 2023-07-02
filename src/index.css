@@ -1,6 +1,5 @@
 @import '@aws-amplify/ui-react/styles.css';
-@import '~antd/dist/antd.css';
-/* @import '~antd/dist/antd.dark.css'; */
+@import '~antd/dist/reset.css';
 
 body,
 *[class^='ant-'] {
@@ -13,6 +12,7 @@ body,
 
 code,
 pre,
+span.tc,
 .react-json-view > div {
   font-family: 'Noto Sans Mono', SFMono-Regular, Menlo, Consolas, 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
     'Oxygen Mono', 'Liberation Mono', 'Lucida Console', 'Andale Mono WT', 'Andale Mono', 'Lucida Sans Typewriter',
@@ -22,4 +22,21 @@ pre,
 
 .react-json-view + .react-json-view {
   margin-top: 1em;
+}
+
+.danger-button,
+.danger-button > div {
+  color: #fff;
+  background-color: #f5222d !important;
+  border-color: #f5222d !important;
+}
+
+.danger-button:hover > div {
+  color: #fff;
+  background-color: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+}
+
+.matchedText {
+  background-color: #ffff00 !important;
 }

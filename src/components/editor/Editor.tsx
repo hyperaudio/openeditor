@@ -28,7 +28,7 @@ import { AutoComplete } from 'antd';
 // import RefAutoComplete from 'antd/lib/auto-complete';
 import { nanoid } from 'nanoid';
 
-import { darkModeAtom, measureAtom } from '../../atoms';
+import { darkModeAtom, measureAtom, showFullTimecodeAtom } from '../../atoms';
 
 import PlayheadDecorator from './PlayheadDecorator';
 import reducer from './reducer';
@@ -72,6 +72,9 @@ interface EditorProps {
   playing: boolean;
   pause: () => void;
   readOnly?: boolean;
+  frameRate?: number;
+  offset: string;
+  highlight?: string;
 }
 
 const Editor = ({
@@ -90,6 +93,9 @@ const Editor = ({
   playing,
   pause,
   readOnly,
+  frameRate,
+  offset,
+  highlight, // = 'mathematics',
   ...rest
 }: EditorProps): JSX.Element => {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -124,22 +130,40 @@ const Editor = ({
   const onFocus = useCallback(() => setFocused(true), []);
   const onBlur = useCallback(() => setFocused(false), []);
 
-  const editorState = useMemo(
-    () =>
-      !focused && playheadDecorator
-        ? EditorState.set(state, {
-            decorator: new CompositeDecorator([
-              {
-                strategy: (contentBlock, callback, contentState) =>
-                  playheadDecorator.strategy(contentBlock, callback, contentState, time),
-                component: playheadDecorator.component,
-              },
-              ...decorators,
-            ]),
-          })
-        : state,
-    [state, time, playheadDecorator, decorators, focused],
-  );
+  const editorState = useMemo(() => {
+    if (!focused && playheadDecorator) {
+      return EditorState.set(state, {
+        decorator: new CompositeDecorator([
+          {
+            strategy: (contentBlock, callback, contentState) =>
+              playheadDecorator.strategy(contentBlock, callback, contentState, time),
+            component: playheadDecorator.component,
+          },
+          ...decorators,
+        ]),
+      });
+    }
+
+    if (highlight && highlight !== '') {
+      const regex = new RegExp(highlight, 'gi');
+
+      return EditorState.set(state, {
+        decorator: new CompositeDecorator([
+          {
+            strategy: (contentBlock, callback) => {
+              if (highlight !== '') {
+                findWithRegex(regex, contentBlock, callback);
+              }
+            },
+            component: SearchHighlight,
+          },
+          ...decorators,
+        ]),
+      });
+    }
+
+    return state;
+  }, [state, time, playheadDecorator, decorators, focused, highlight]);
 
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
@@ -300,7 +324,7 @@ const Editor = ({
           .getCurrentContent()
           .getBlocksAsArray()
           .map((block: ContentBlock) => (
-            <BlockStyle key={block.getKey()} {...{ block, speakers, time }} />
+            <BlockStyle key={block.getKey()} {...{ block, speakers, time, frameRate, offset }} />
           ))}
         <EditorStyleElement />
       </div>
@@ -412,17 +436,25 @@ const BlockStyle = ({
   speakers,
   time,
   activeInterval,
+  frameRate = 1000,
+  offset,
 }: {
   block: ContentBlock;
   speakers: any;
   time: number;
   activeInterval?: any[];
+  frameRate?: number;
+  offset: string;
 }): JSX.Element => {
   const [darkMode] = useAtom(darkModeAtom);
+  const [showFullTimecode] = useAtom(showFullTimecodeAtom);
   const speaker = useMemo(() => speakers?.[block.getData().get('speaker')]?.name ?? '', [block, speakers]);
   const start = useMemo(() => block.getData().get('start'), [block]);
   const end = useMemo(() => block.getData().get('end'), [block]);
-  const tc = useMemo(() => timecode(start), [start]);
+  const tc = useMemo(
+    () => timecode({ seconds: start, partialTimecode: !showFullTimecode, frameRate, offset }),
+    [start, showFullTimecode, frameRate, offset],
+  );
   // const intersects = useMemo(() => intersection([start, end], activeInterval), [start, end, activeInterval]);
 
   return (
@@ -576,18 +608,53 @@ const EditorStyleElement = (): JSX.Element => {
     color: #177ddc;
     transition: 0.2s;
   }
+
+  .find-and-replace-highlight {
+    background-color: #fbf8a3;
+    outline: 1px solid #ffff00;
+  }
   `,
     [darkMode, measure],
   );
   return <style scoped>{style}</style>;
 };
 
-const timecode = (seconds = 0, frameRate = 25, dropFrame = false): string =>
-  TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
-    .toString()
-    .split(':')
-    .slice(0, 3)
-    .join(':');
+const timecode = ({
+  seconds = 0,
+  frameRate = 1000,
+  dropFrame = false,
+  partialTimecode = false,
+  offset = 0,
+}: {
+  seconds: number | undefined;
+  frameRate: FRAMERATE | number;
+  dropFrame?: boolean;
+  partialTimecode: boolean;
+  offset: number | string;
+}): string => {
+  let tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame).toString();
+
+  try {
+    tc = TC(seconds * frameRate, frameRate as FRAMERATE, dropFrame)
+      .add(new TC(offset, frameRate as FRAMERATE))
+      .toString();
+  } catch (error) {
+    console.log('offset', error);
+  }
+
+  // hh:mm:ss
+  if (partialTimecode) return tc.split(':').slice(0, 3).join(':');
+
+  // hh:mm:ss.mmmm
+  if (frameRate === 1000) {
+    const [hh, mm, ss, mmm] = tc.split(':');
+    if (mmm.length === 1) return `${hh}:${mm}:${ss}.${mmm}00`;
+    if (mmm.length === 2) return `${hh}:${mm}:${ss}.${mmm}0`;
+    return `${hh}:${mm}:${ss}.${mmm}`;
+  }
+
+  return tc;
+};
 
 const wordAligner = (
   words: { [key: string]: any }[],
@@ -613,6 +680,27 @@ const wordAligner = (
   // eslint-disable-next-line no-unused-expressions
   callback && callback(items);
   return items;
+};
+
+const SearchHighlight = ({ children }: { children: React.ReactElement[] }): JSX.Element => (
+  <span className="find-and-replace-highlight">{children}</span>
+);
+
+const findWithRegex = (
+  regex: RegExp,
+  contentBlock: ContentBlock,
+  callback: (offset: number, length: number) => void,
+): void => {
+  const text = contentBlock.getText();
+  let matchArr;
+  let start;
+  let end;
+  // eslint-disable-next-line no-cond-assign
+  while ((matchArr = regex.exec(text)) !== null) {
+    start = matchArr.index;
+    end = start + matchArr[0].length;
+    callback(start, end);
+  }
 };
 
 export default Editor;
