@@ -31,7 +31,7 @@ export class cdkStack extends cdk.Stack {
       [{ category: 'storage', resourceName: 's3storage' }],
     );
 
-    const bucketName = cdk.Fn.ref(dependencies.storage['s3storage'].BucketName);
+    // const bucketName = cdk.Fn.ref(dependencies.storage['s3storage'].BucketName);
 
     const roleResourceNamePrefix = `MediaConvertRole-${amplifyProjectInfo.projectName}`;
 
@@ -43,7 +43,8 @@ export class cdkStack extends cdk.Stack {
     role.addToPolicy(
       new iam.PolicyStatement({
         actions: ['s3:*'],
-        resources: [`arn:aws:s3:::${bucketName}`, `arn:aws:s3:::${bucketName}/*`],
+        // resources: [`arn:aws:s3:::${bucketName}`, `arn:aws:s3:::${bucketName}/*`],
+        resources: [`arn:aws:s3:::*`],
       }),
     );
 
