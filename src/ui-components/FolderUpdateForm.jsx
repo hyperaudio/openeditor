@@ -20,7 +20,7 @@ import { DataStore } from "aws-amplify";
 export default function FolderUpdateForm(props) {
   const {
     id: idProp,
-    folder,
+    folder: folderModelProp,
     onSuccess,
     onError,
     onSubmit,
@@ -61,14 +61,16 @@ export default function FolderUpdateForm(props) {
     setProject(cleanValues.project);
     setErrors({});
   };
-  const [folderRecord, setFolderRecord] = React.useState(folder);
+  const [folderRecord, setFolderRecord] = React.useState(folderModelProp);
   React.useEffect(() => {
     const queryData = async () => {
-      const record = idProp ? await DataStore.query(Folder, idProp) : folder;
+      const record = idProp
+        ? await DataStore.query(Folder, idProp)
+        : folderModelProp;
       setFolderRecord(record);
     };
     queryData();
-  }, [idProp, folder]);
+  }, [idProp, folderModelProp]);
   React.useEffect(resetStateValues, [folderRecord]);
   const validations = {
     parent: [],
@@ -305,7 +307,7 @@ export default function FolderUpdateForm(props) {
             event.preventDefault();
             resetStateValues();
           }}
-          isDisabled={!(idProp || folder)}
+          isDisabled={!(idProp || folderModelProp)}
           {...getOverrideProps(overrides, "ResetButton")}
         ></Button>
         <Flex
@@ -317,7 +319,7 @@ export default function FolderUpdateForm(props) {
             type="submit"
             variation="primary"
             isDisabled={
-              !(idProp || folder) ||
+              !(idProp || folderModelProp) ||
               Object.values(errors).some((e) => e?.hasError)
             }
             {...getOverrideProps(overrides, "SubmitButton")}

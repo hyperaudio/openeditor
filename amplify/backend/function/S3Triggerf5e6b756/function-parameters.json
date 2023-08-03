@@ -14,7 +14,7 @@
       "resourceName": "openeditorlayerffprobe",
       "version": "Always choose latest version",
       "isLatestVersionSelected": true,
-      "env": "dev"
+      "env": "prod"
     }
   ]
 }

@@ -184,7 +184,7 @@ function ArrayField({
 export default function ProjectUpdateForm(props) {
   const {
     id: idProp,
-    project,
+    project: projectModelProp,
     onSuccess,
     onError,
     onSubmit,
@@ -226,14 +226,16 @@ export default function ProjectUpdateForm(props) {
     );
     setErrors({});
   };
-  const [projectRecord, setProjectRecord] = React.useState(project);
+  const [projectRecord, setProjectRecord] = React.useState(projectModelProp);
   React.useEffect(() => {
     const queryData = async () => {
-      const record = idProp ? await DataStore.query(Project, idProp) : project;
+      const record = idProp
+        ? await DataStore.query(Project, idProp)
+        : projectModelProp;
       setProjectRecord(record);
     };
     queryData();
-  }, [idProp, project]);
+  }, [idProp, projectModelProp]);
   React.useEffect(resetStateValues, [projectRecord]);
   const [currentUsersValue, setCurrentUsersValue] = React.useState("");
   const usersRef = React.createRef();
@@ -490,7 +492,7 @@ export default function ProjectUpdateForm(props) {
             event.preventDefault();
             resetStateValues();
           }}
-          isDisabled={!(idProp || project)}
+          isDisabled={!(idProp || projectModelProp)}
           {...getOverrideProps(overrides, "ResetButton")}
         ></Button>
         <Flex
@@ -502,7 +504,7 @@ export default function ProjectUpdateForm(props) {
             type="submit"
             variation="primary"
             isDisabled={
-              !(idProp || project) ||
+              !(idProp || projectModelProp) ||
               Object.values(errors).some((e) => e?.hasError)
             }
             {...getOverrideProps(overrides, "SubmitButton")}
