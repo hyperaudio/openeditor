@@ -9,6 +9,7 @@ import { Auth, DataStore, Hub } from 'aws-amplify';
 import { defaultDarkModeOverride, useAuthenticator } from '@aws-amplify/ui-react';
 import { useAtom } from 'jotai';
 import { useKonami } from 'react-konami-code';
+import * as Sentry from '@sentry/react';
 
 import { User, Transcript, Project, Folder } from './models';
 import { darkModeAtom, debugModeAtom } from './atoms';
@@ -124,6 +125,8 @@ const App = (): JSX.Element => {
 
     const { username, attributes } = cognitoUser;
     const { email } = attributes ?? { email: '' };
+
+    Sentry.setUser({ email });
 
     username &&
       (async () => {
