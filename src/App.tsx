@@ -226,7 +226,8 @@ const PageWrapper = ({
   userMenu,
 }: PageWrapperProps): JSX.Element => {
   const params = useParams();
-  const { uuid } = params as Record<string, string>;
+  // const { uuid } = params as Record<string, string>;
+  const uuid = (params as Record<string, string>).uuid ?? userProjectGroups?.[0]?.id ?? '';
 
   const projectGroup = useMemo(() => userProjectGroups?.find(({ id }) => id === uuid), [userProjectGroups, uuid]);
   const project = useMemo(() => projects?.find(({ id }) => id === uuid), [projects, uuid]);
