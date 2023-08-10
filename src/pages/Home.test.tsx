@@ -25,6 +25,7 @@ test('renders OpenEditor', () => {
       userMenu={<span>test</span>}
       project={undefined}
       projects={[]}
+      projectGroup={undefined}
       folder={undefined}
       folders={[]}
       transcripts={[]}

@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/anchor-is-valid */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-nested-ternary */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
@@ -27,7 +28,9 @@ import {
   Input,
   message,
   Tree,
+  Dropdown,
 } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import UploadOutlined from '@ant-design/icons/UploadOutlined';
 import DeleteOutlined from '@ant-design/icons/DeleteOutlined';
 import FolderOpenOutlined from '@ant-design/icons/FolderOpenOutlined';
@@ -44,7 +47,7 @@ import MiniSearch from 'minisearch';
 import Highlighter from 'react-highlight-words';
 import { RawDraftContentBlock } from 'draft-js';
 
-import { User, Transcript, Project, Folder } from '../models';
+import { User, Transcript, Project, Folder, ProjectGroup } from '../models';
 import StatusCard, { StatusTag, StatusBadge } from '../components/cards/StatusCard';
 import UserAvatar, { UserAvatarGroup } from '../components/UserAvatar';
 import DataCard from '../components/cards/DataCard';
@@ -52,6 +55,7 @@ import Footer from '../components/Footer';
 import { darkModeAtom } from '../atoms';
 
 import type { DataNode, DirectoryTreeProps } from 'antd/es/tree';
+import type { MenuProps } from 'antd';
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
@@ -66,6 +70,7 @@ interface HomeProps {
   userMenu: JSX.Element;
   project: Project | undefined;
   projects: Project[] | undefined;
+  projectGroup: ProjectGroup | undefined;
   folder: Folder | undefined;
   folders: Folder[] | undefined;
   transcripts: Transcript[] | undefined;
@@ -86,6 +91,7 @@ const Home = ({
   groups,
   project,
   projects = [],
+  projectGroup,
   folder,
   folders = [],
   transcripts = [],
@@ -433,10 +439,26 @@ const Home = ({
     setSelectedRowKeys([]);
   }, [selectedRowKeys, messageApi]);
 
-  const itemRender = useCallback(
-    (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,
-    [],
-  );
+  const itemRender = useCallback((route: any, params: any, routes: any[], paths: any[]) => {
+    if (route.projectGroups && route.projectGroups.length > 0) {
+      const items: MenuProps['items'] = route.projectGroups.map((projectGroup: ProjectGroup, i: number) => ({
+        key: `${i + 1}`,
+        label: <Link to={`/${projectGroup.id}`}>{projectGroup.title}</Link>,
+      }));
+
+      return (
+        <Dropdown menu={{ items }}>
+          <a onClick={e => e.preventDefault()}>
+            <Space>
+              {route.breadcrumbName}
+              <DownOutlined />
+            </Space>
+          </a>
+        </Dropdown>
+      );
+    }
+    return <Link to={route.path}>{route.breadcrumbName}</Link>;
+  }, []);
 
   const search = useMemo(() => query.get('search'), [query]);
   const [searchResults, setSearchResults] = useState<any | null>(null);
@@ -458,12 +480,12 @@ const Home = ({
           extra={
             <Space>
               <SearchBox {...{ root, folders, transcripts, setSearchResults }} />
-              {groups.includes('Admins') && !uuid ? (
+              {groups.includes('Admins') && (!uuid || projectGroup) ? (
                 <Button type="default" shape="round" icon={<ProjectOutlined />} onClick={newProject}>
                   New Project
                 </Button>
               ) : null}
-              {uuid ? (
+              {uuid && !projectGroup ? (
                 <>
                   <Button type="default" shape="round" icon={<FolderAddOutlined />} onClick={newFolder}>
                     New Folder
@@ -529,7 +551,12 @@ const Home = ({
               <StatusCard transcript={statusDrawerTranscript} user={user} groups={groups} />
             ) : null}
           </Drawer>
-          <NewProjectModal visible={newProjectModalVisible} setVisible={setNewProjectModalVisible} userId={user?.id} />
+          <NewProjectModal
+            visible={newProjectModalVisible}
+            setVisible={setNewProjectModalVisible}
+            userId={user?.id}
+            uuid={uuid}
+          />
           <NewFolderModal
             visible={newFolderModalVisible}
             setVisible={setNewFolderModalVisible}
@@ -900,10 +927,12 @@ const NewProjectModal = ({
   visible,
   setVisible,
   userId,
+  uuid,
 }: {
   visible: boolean;
   setVisible: (visibility: boolean) => void;
   userId: string | undefined;
+  uuid: string | undefined;
 }): JSX.Element => {
   const [value, setValue] = useState('');
 
@@ -911,6 +940,7 @@ const NewProjectModal = ({
     const newProject = await DataStore.save(
       new Project({
         title: value,
+        parent: uuid,
         users: [userId ?? ''], // FIXME: handle undefined
         metadata: JSON.stringify({
           createdBy: userId,
