@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/anchor-is-valid */
 /* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable jsx-a11y/media-has-caption */
@@ -7,7 +8,22 @@ import React, { useMemo, useState, useCallback, useEffect, useRef, MutableRefObj
 import { useParams, Link, useHistory, useLocation } from 'react-router-dom';
 import { Storage } from 'aws-amplify';
 import { useAtom } from 'jotai';
-import { Layout, Col, Row, Drawer, FloatButton, Empty, Skeleton, Button, Space, Divider, Form, Input } from 'antd';
+import {
+  Layout,
+  Col,
+  Row,
+  Drawer,
+  FloatButton,
+  Empty,
+  Skeleton,
+  Button,
+  Space,
+  Divider,
+  Form,
+  Input,
+  Dropdown,
+} from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 import ExportOutlined from '@ant-design/icons/ExportOutlined';
 import EditOutlined from '@ant-design/icons/EditOutlined';
 import SearchOutlined from '@ant-design/icons/SearchOutlined';
@@ -23,7 +39,7 @@ import { useDebounce } from 'usehooks-ts';
 import useInterval from 'use-interval';
 
 import { darkModeAtom, transportAtTopAtom } from '../atoms';
-import { User, Transcript, Project, Folder } from '../models';
+import { User, Transcript, Project, Folder, ProjectGroup } from '../models';
 import Player from '../components/Player';
 import { Editor, convertFromRaw, createEntityMap } from '../components/editor';
 import StatusCard, { StatusTag } from '../components/cards/StatusCard';
@@ -31,6 +47,8 @@ import DataCard from '../components/cards/DataCard';
 import ExportCard from '../components/cards/ExportCard';
 import MetadataCard from '../components/cards/MetadataCard';
 import Footer from '../components/Footer';
+
+import type { MenuProps } from 'antd';
 
 const { Content } = Layout;
 
@@ -307,10 +325,26 @@ const TranscriptPage = ({
 
   useHotkeys('ctrl+space', () => (playing ? pause() : play()), [playing, play, pause]);
 
-  const itemRender = useCallback(
-    (route: any, params: any, routes: any[], paths: any[]) => <Link to={route.path}>{route.breadcrumbName}</Link>,
-    [],
-  );
+  const itemRender = useCallback((route: any, params: any, routes: any[], paths: any[]) => {
+    if (route.projectGroups && route.projectGroups.length > 0) {
+      const items: MenuProps['items'] = route.projectGroups.map((projectGroup: ProjectGroup, i: number) => ({
+        key: `${i + 1}`,
+        label: <Link to={`/${projectGroup.id}`}>{projectGroup.title}</Link>,
+      }));
+
+      return (
+        <Dropdown menu={{ items }}>
+          <a onClick={e => e.preventDefault()}>
+            <Space>
+              {route.breadcrumbName}
+              <DownOutlined />
+            </Space>
+          </a>
+        </Dropdown>
+      );
+    }
+    return <Link to={route.path}>{route.breadcrumbName}</Link>;
+  }, []);
 
   return (
     <Layout>
