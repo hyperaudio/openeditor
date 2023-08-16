@@ -20,7 +20,7 @@ import { DataStore } from "aws-amplify";
 export default function TranscriptUpdateForm(props) {
   const {
     id: idProp,
-    transcript,
+    transcript: transcriptModelProp,
     onSuccess,
     onError,
     onSubmit,
@@ -68,16 +68,17 @@ export default function TranscriptUpdateForm(props) {
     );
     setErrors({});
   };
-  const [transcriptRecord, setTranscriptRecord] = React.useState(transcript);
+  const [transcriptRecord, setTranscriptRecord] =
+    React.useState(transcriptModelProp);
   React.useEffect(() => {
     const queryData = async () => {
       const record = idProp
         ? await DataStore.query(Transcript, idProp)
-        : transcript;
+        : transcriptModelProp;
       setTranscriptRecord(record);
     };
     queryData();
-  }, [idProp, transcript]);
+  }, [idProp, transcriptModelProp]);
   React.useEffect(resetStateValues, [transcriptRecord]);
   const validations = {
     parent: [],
@@ -350,7 +351,7 @@ export default function TranscriptUpdateForm(props) {
             event.preventDefault();
             resetStateValues();
           }}
-          isDisabled={!(idProp || transcript)}
+          isDisabled={!(idProp || transcriptModelProp)}
           {...getOverrideProps(overrides, "ResetButton")}
         ></Button>
         <Flex
@@ -362,7 +363,7 @@ export default function TranscriptUpdateForm(props) {
             type="submit"
             variation="primary"
             isDisabled={
-              !(idProp || transcript) ||
+              !(idProp || transcriptModelProp) ||
               Object.values(errors).some((e) => e?.hasError)
             }
             {...getOverrideProps(overrides, "SubmitButton")}

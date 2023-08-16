@@ -18,7 +18,7 @@ const UserAvatar = ({ id, users }: { id: string; users: User[] | undefined }): J
 export const UserAvatarGroup = ({ ids, users }: { ids: string[]; users: User[] | undefined }): JSX.Element | null => (
   <Avatar.Group maxCount={2}>
     {ids.map(id => (
-      <UserAvatar {...{ id, users }} />
+      <UserAvatar key={id} {...{ id, users }} />
     ))}
   </Avatar.Group>
 );

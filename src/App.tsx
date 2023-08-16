@@ -9,8 +9,9 @@ import { Auth, DataStore, Hub } from 'aws-amplify';
 import { defaultDarkModeOverride, useAuthenticator } from '@aws-amplify/ui-react';
 import { useAtom } from 'jotai';
 import { useKonami } from 'react-konami-code';
+import * as Sentry from '@sentry/react';
 
-import { User, Transcript, Project, Folder } from './models';
+import { User, Transcript, Project, Folder, ProjectGroup } from './models';
 import { darkModeAtom, debugModeAtom } from './atoms';
 import AuthPage from './pages/Auth';
 import Home from './pages/Home';
@@ -31,11 +32,14 @@ const getUsers = async (setUsers: (users: User[]) => void): Promise<void> => set
 const getTranscripts = async (setTranscripts: (transcripts: Transcript[]) => void): Promise<void> =>
   setTranscripts(await DataStore.query(Transcript));
 
+const getFolders = async (setFolders: (folders: Folder[]) => void): Promise<void> =>
+  setFolders(await DataStore.query(Folder));
+
 const getProjects = async (setProjects: (projects: Project[]) => void): Promise<void> =>
   setProjects(await DataStore.query(Project));
 
-const getFolders = async (setFolders: (folders: Folder[]) => void): Promise<void> =>
-  setFolders(await DataStore.query(Folder));
+const getProjectGroups = async (setProjectGroups: (projects: ProjectGroup[]) => void): Promise<void> =>
+  setProjectGroups(await DataStore.query(ProjectGroup));
 
 const AppWrapper = (): JSX.Element => {
   const { authStatus } = useAuthenticator(context => [context.user]);
@@ -59,8 +63,9 @@ const App = (): JSX.Element => {
   const [ready, setReady] = useState(false);
   const [users, setUsers] = useState<User[] | undefined>(undefined);
   const [transcripts, setTranscripts] = useState<Transcript[] | undefined>(undefined);
-  const [projects, setProjects] = useState<Project[] | undefined>(undefined);
   const [folders, setFolders] = useState<Folder[] | undefined>(undefined);
+  const [projects, setProjects] = useState<Project[] | undefined>(undefined);
+  const [projectGroups, setProjectGroups] = useState<ProjectGroup[] | undefined>(undefined);
 
   const [debugMode, setDebug] = useAtom(debugModeAtom);
   useKonami(() => setDebug(!debugMode));
@@ -84,6 +89,15 @@ const App = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
+    getFolders(setFolders);
+
+    const subscription = DataStore.observe(Folder).subscribe(() => getFolders(setFolders));
+    window.addEventListener('online', () => navigator.onLine && getFolders(setFolders));
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     getProjects(setProjects);
 
     const subscription = DataStore.observe(Project).subscribe(() => getProjects(setProjects));
@@ -93,10 +107,10 @@ const App = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
-    getFolders(setFolders);
+    getProjectGroups(setProjectGroups);
 
-    const subscription = DataStore.observe(Folder).subscribe(() => getFolders(setFolders));
-    window.addEventListener('online', () => navigator.onLine && getFolders(setFolders));
+    const subscription = DataStore.observe(ProjectGroup).subscribe(() => getProjectGroups(setProjectGroups));
+    window.addEventListener('online', () => navigator.onLine && getProjectGroups(setProjectGroups));
 
     return () => subscription.unsubscribe();
   }, []);
@@ -109,6 +123,12 @@ const App = (): JSX.Element => {
   const groups = useMemo(
     () => cognitoUser?.getSignInUserSession()?.getIdToken().payload['cognito:groups'],
     [cognitoUser],
+  );
+
+  const userProjectGroups = useMemo(
+    () =>
+      groups.includes('Admins') ? projectGroups : projectGroups?.filter(({ title }) => groups.includes(title)) ?? [],
+    [projectGroups, groups],
   );
 
   useEffect(() => {
@@ -124,6 +144,8 @@ const App = (): JSX.Element => {
 
     const { username, attributes } = cognitoUser;
     const { email } = attributes ?? { email: '' };
+
+    Sentry.setUser({ email });
 
     username &&
       (async () => {
@@ -151,6 +173,7 @@ const App = (): JSX.Element => {
         <PageWrapper
           {...{
             user,
+            userProjectGroups,
             users,
             groups,
             projects,
@@ -164,6 +187,7 @@ const App = (): JSX.Element => {
         <PageWrapper
           {...{
             user,
+            userProjectGroups,
             users,
             groups,
             projects,
@@ -182,6 +206,7 @@ const App = (): JSX.Element => {
 
 interface PageWrapperProps {
   user: User | undefined;
+  userProjectGroups: ProjectGroup[] | undefined;
   users: User[] | undefined;
   groups: string[];
   projects: Project[] | undefined;
@@ -192,6 +217,7 @@ interface PageWrapperProps {
 
 const PageWrapper = ({
   user,
+  userProjectGroups,
   users,
   groups,
   projects,
@@ -200,20 +226,41 @@ const PageWrapper = ({
   userMenu,
 }: PageWrapperProps): JSX.Element => {
   const params = useParams();
-  const { uuid } = params as Record<string, string>;
+  // const { uuid } = params as Record<string, string>;
+  const uuid = (params as Record<string, string>).uuid ?? userProjectGroups?.[0]?.id ?? '';
 
+  const projectGroup = useMemo(() => userProjectGroups?.find(({ id }) => id === uuid), [userProjectGroups, uuid]);
   const project = useMemo(() => projects?.find(({ id }) => id === uuid), [projects, uuid]);
   const folder = useMemo(() => folders?.find(({ id }) => id === uuid), [folders, uuid]);
   const transcript = useMemo(() => transcripts?.find(({ id }) => id === uuid), [transcripts, uuid]);
 
   const [root, routes] = useMemo(() => {
-    const home = { path: '/', breadcrumbName: 'Home' };
+    const home = { path: '/', breadcrumbName: 'Home', projectGroups: userProjectGroups };
 
-    if (project) return [project, [home]];
+    if (projectGroup) {
+      home.path = `/${uuid}`;
+      home.breadcrumbName = userProjectGroups?.find(({ id }) => id === uuid)?.title ?? 'Home';
+      return [null, [home]];
+    }
+
+    if (project) {
+      if (project.parent) {
+        home.path = `/${project.parent}`;
+        home.breadcrumbName = userProjectGroups?.find(({ id }) => id === project.parent)?.title ?? 'Home';
+      }
+
+      return [project, [home]];
+    }
 
     if (folder || transcript) {
       const parents = getParents(uuid, projects ?? [], folders ?? [], transcripts ?? []);
       const root = parents?.slice(-1)?.[0];
+
+      if (parents.length > 0 && parents[parents.length - 1].parent) {
+        home.path = `/${parents[parents.length - 1].parent}`;
+        home.breadcrumbName =
+          userProjectGroups?.find(({ id }) => id === parents[parents.length - 1].parent)?.title ?? 'Home';
+      }
 
       return [
         root,
@@ -230,12 +277,28 @@ const PageWrapper = ({
     }
 
     return [null, [home]];
-  }, [uuid, project, projects, folder, folders, transcript, transcripts]);
+  }, [uuid, project, projects, folder, folders, transcript, transcripts, userProjectGroups]);
 
   useEffect(() => window.scrollTo(0, 0), [uuid]);
 
-  return project || folder || !uuid ? (
-    <Home {...{ uuid, user, users, groups, project, projects, folder, folders, transcripts, userMenu, root, routes }} />
+  return projectGroup || project || folder || !uuid ? (
+    <Home
+      {...{
+        uuid,
+        user,
+        users,
+        groups,
+        project,
+        projects,
+        projectGroup,
+        folder,
+        folders,
+        transcripts,
+        userMenu,
+        root,
+        routes,
+      }}
+    />
   ) : transcript ? (
     <TranscriptPage
       {...{ uuid, user, groups, project, projects, folders, transcript, transcripts, userMenu, routes }}

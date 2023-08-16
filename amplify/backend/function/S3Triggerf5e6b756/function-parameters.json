@@ -12,9 +12,9 @@
     {
       "type": "ProjectLayer",
       "resourceName": "openeditorlayerffprobe",
-      "env": "staging",
       "version": "Always choose latest version",
-      "isLatestVersionSelected": true
+      "isLatestVersionSelected": true,
+      "env": "prod"
     }
   ]
 }

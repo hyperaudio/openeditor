@@ -11,6 +11,7 @@
     "@aws-amplify/ui-react": "^3.2.1",
     "@aws-sdk/client-transcribe": "^3.137.0",
     "@bbc/stt-align-node": "Laurian/stt-align-node#master",
+    "@sentry/react": "^7.62.0",
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
@@ -116,5 +117,6 @@
     "prettier": "2.7.1",
     "rimraf": "^3.0.2",
     "tabletojson": "^2.0.7"
-  }
+  },
+  "packageManager": "yarn@1.22.1"
 }
